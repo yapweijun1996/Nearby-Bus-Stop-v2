@@ -1,215 +1,344 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-  <title>SG Nearby Bus Stops</title>
-
-  <!-- Leaflet CSS (all lowercase!) -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-    crossorigin=""/>
-
-  <style>
-    body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; overflow:hidden; }
-    #map { height:100%; }
-
-    .controls {
-      position:absolute; bottom:env(safe-area-inset-bottom); left:0;
-      width:100%; max-height:50%; background:rgba(255,255,255,0.8);
-      backdrop-filter:blur(10px); box-shadow:0 -2px 6px rgba(0,0,0,0.2);
-      padding:8px; display:flex; flex-direction:column; gap:6px;
-      z-index:1000; transform:translateY(0);
-      transition:transform 0.3s ease-in-out;
-      border-top-left-radius:12px; border-top-right-radius:12px;
-      box-sizing:border-box; touch-action:none;
-    }
-    .controls.hidden { transform:translateY(100%); }
-    .sheet-handle { width:40px; height:4px; background:#ccc; border-radius:2px; margin:0 auto; }
-
-    .controls-row { display:flex; gap:8px; align-items:center; }
-    .controls-row input[type="range"] { flex:1; }
-    .controls-row input[type="text"] {
-      flex:2; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:1em;
-    }
-    .controls-row button {
-      flex:1; padding:10px; border:none; border-radius:6px; color:#fff; font-size:1em;
-    }
-    .btn-primary { background:#007bff; }
-    .btn-primary:active { background:#0056b3; }
-    .btn-success { background:#28a745; }
-    .btn-toggle  { background:#6c757d; }
-
-    #showBtn {
-      position:absolute; bottom:16px; right:16px; z-index:1001;
-      width:48px; height:48px; background:#007bff; color:#fff;
-      border:none; border-radius:50%; font-size:24px; display:none;
-      align-items:center; justify-content:center;
-    }
-    #showBtn::before { content:'▲'; }
-
-    @media (min-height:800px) { .controls { max-height:35%; } }
-    @media (orientation:landscape) { .controls { max-height:50%; } }
-  </style>
-</head>
-<body>
-  <!-- If you open via file://, switch to a local HTTP server (e.g. `python -m http.server`) -->
-  <button id="showBtn" aria-label="Show Controls"></button>
-
-  <div class="controls" id="controls">
-    <div class="sheet-handle"></div>
-
-    <div class="controls-row">
-      <label>Radius: <span id="radiusValue">500</span> m</label>
-      <input type="range" id="radius" min="100" max="2000" value="500" step="100">
-    </div>
-
-    <div class="controls-row">
-      <input type="text" id="searchInput" placeholder="Search location…" aria-label="Search location">
-      <button id="searchBtn" class="btn-primary">Go</button>
-    </div>
-
-    <div class="controls-row">
-      <button id="locateBtn" class="btn-primary">Locate Me</button>
-      <button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">Hide</button>
-      <button id="fullscreenBtn" class="btn-success">Full</button>
-    </div>
-  </div>
-
-  <div id="map"></div>
-
-  <!-- Leaflet JS (all lowercase!) -->
-  <script
-    src="https://unpkg.com/leaflet/dist/leaflet.js"
-    crossorigin="">
-  </script>
-  <script>
-    // default fallback coordinate
-    const DEFAULT = { lat:1.283, lon:103.860 };
-
-    // init map
-    const map = L.map('map', { zoomControl:false })
-      .setView([DEFAULT.lat, DEFAULT.lon], 15);
-    L.control.zoom({ position:'topright' }).addTo(map);
-
-    // add CORS‐enabled tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      crossOrigin: true
-    }).addTo(map);
-
-    // circle & layers
-    const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius:500 }).addTo(map);
-    const stopLayer = L.layerGroup().addTo(map);
-
-    let userMarker = null, userPos = null, stops = [];
-
-    // UI refs
-    const ctrls     = document.getElementById('controls');
-    const showBtn   = document.getElementById('showBtn');
-    const radInput  = document.getElementById('radius');
-    const radValue  = document.getElementById('radiusValue');
-    const searchIn  = document.getElementById('searchInput');
-
-    // radius handler
-    radInput.oninput = () => {
-      radValue.textContent = radInput.value;
-      circle.setRadius(+radInput.value);
-      renderStops();
-    };
-
-    // buttons
-    document.getElementById('searchBtn').onclick  = searchLocation;
-    searchIn.onkeydown = e => e.key==='Enter' && searchLocation();
-    document.getElementById('locateBtn').onclick = locateMe;
-    document.getElementById('toggleBtn').onclick = () => {
-      ctrls.classList.toggle('hidden');
-      showBtn.style.display = ctrls.classList.contains('hidden') ? 'flex' : 'none';
-      map.invalidateSize();
-    };
-    showBtn.onclick = () => document.getElementById('toggleBtn').click();
-    document.getElementById('fullscreenBtn').onclick = () => {
-      document.fullscreenElement
-        ? document.exitFullscreen()
-        : document.documentElement.requestFullscreen();
-    };
-
-    // locate via Geolocation API
-    function locateMe() {
-      navigator.geolocation.getCurrentPosition(
-        pos => setUser({ lat:pos.coords.latitude, lon:pos.coords.longitude }),
-        () => alert('Unable to retrieve your location')
-      );
-    }
-
-    // search via Nominatim
-    function searchLocation() {
-      const q = searchIn.value.trim();
-      if (!q) return;
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`, {
-        headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.length) return alert('Location not found');
-        setUser({ lat:+data[0].lat, lon:+data[0].lon });
-      });
-    }
-
-    // place user pin + circle + re-render
-    function setUser(pos) {
-      userPos = pos;
-      if (!userMarker) {
-        userMarker = L.marker([pos.lat,pos.lon]).addTo(map)
-          .bindPopup('You are here').openPopup();
-      } else {
-        userMarker.setLatLng([pos.lat,pos.lon]);
-      }
-      circle.setLatLng([pos.lat,pos.lon]);
-      map.setView([pos.lat,pos.lon], map.getZoom());
-      renderStops();
-    }
-
-    // fetch bus stops JSON, then init
-    function loadStops() {
-      fetch('bus_stop_list_sg.json')
-        .then(r => r.text())
-        .then(txt => {
-          // strip JS comments safely
-          const clean = txt.replace(/^[ \t]*\/\/.*(?:\r?\n)?/gm, '');
-          stops = JSON.parse(clean);
-          // URL params override
-          const p = new URLSearchParams(window.location.search);
-          const lat = parseFloat(p.get('lat')), lon = parseFloat(p.get('lon'));
-          if (!isNaN(lat) && !isNaN(lon)) {
-            setUser({ lat, lon });
-          } else {
-            locateMe();
-          }
-        });
-    }
-
-    // draw only those within radius
-    function renderStops() {
-      if (!userPos) return;
-      stopLayer.clearLayers();
-      stops.forEach(s => {
-        if (map.distance([s.Latitude,s.Longitude],[userPos.lat,userPos.lon]) <= +radInput.value) {
-          L.marker([s.Latitude,s.Longitude])
-            .bindPopup(`
-              <b>${s.BusStopCode}</b><br>
-              ${s.Description}<br>
-              <a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}"
-                 target="_blank">Times</a>
-            `)
-            .addTo(stopLayer);
-        }
-      });
-    }
-
-    // kickoff
-    loadStops();
-  </script>
-</body>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+		name="viewport"
+		content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes"
+		/>
+		<title>SG Nearby Bus Stops</title>
+		
+		<!-- Leaflet CSS (all lowercase!) -->
+		<link
+		rel="stylesheet"
+		href="https://unpkg.com/leaflet/dist/leaflet.css"
+		crossorigin=""
+		/>
+		
+		<style>
+			body,
+			html {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				font-family: Arial, sans-serif;
+				overflow: hidden;
+			}
+			#map {
+				height: 100%;
+			}
+			
+			.controls {
+				position: absolute;
+				bottom: env(safe-area-inset-bottom);
+				left: 0;
+				width: 100%;
+				max-height: 50%;
+				background: rgba(255, 255, 255, 0.8);
+				backdrop-filter: blur(10px);
+				box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.2);
+				padding: 8px;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				z-index: 1000;
+				transform: translateY(0);
+				transition: transform 0.3s ease-in-out;
+				border-top-left-radius: 12px;
+				border-top-right-radius: 12px;
+				box-sizing: border-box;
+			}
+			.controls.hidden {
+				transform: translateY(220%);
+			}
+			.sheet-handle {
+				width: 40px;
+				height: 4px;
+				background: #ccc;
+				border-radius: 2px;
+				margin: 0 auto;
+			}
+			
+			.controls-row {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+			}
+			.controls-row input[type="range"] {
+				flex: 1;
+			}
+			.controls-row input[type="text"] {
+				flex: 2;
+				padding: 10px;
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				font-size: 1em;
+			}
+			.controls-row button {
+				flex: 1;
+				padding: 10px;
+				border: none;
+				border-radius: 6px;
+				color: #fff;
+				font-size: 1em;
+			}
+			.btn-primary {
+				background: #007bff;
+			}
+			.btn-primary:active {
+				background: #0056b3;
+			}
+			.btn-success {
+				background: #28a745;
+			}
+			.btn-toggle {
+				background: #6c757d;
+			}
+			
+			#showBtn {
+				position: absolute;
+				bottom: 16px;
+				right: 16px;
+				z-index: 1001;
+				width: 48px;
+				height: 48px;
+				background: #007bff;
+				color: #fff;
+				border: none;
+				border-radius: 50%;
+				font-size: 24px;
+				display: none;
+				align-items: center;
+				justify-content: center;
+			}
+			#showBtn::before {
+				content: '▲';
+			}
+			.leaflet-control-attribution {
+				display: none !important;
+			}
+			
+			@media (min-height: 800px) {
+				.controls {
+					max-height: 35%;
+				}
+			}
+			@media (orientation: landscape) {
+				.controls {
+					max-height: 50%;
+				}
+			}
+			
+			/*— Mobile responsiveness for narrow screens —*/
+			@media (max-width: 480px) {
+				.controls {
+					padding: 6px;
+					gap: 4px;
+					top: 0;
+					bottom: auto;
+					
+					border-top-left-radius: 0;
+					border-top-right-radius: 0;
+					border-bottom-left-radius: 12px;
+					border-bottom-right-radius: 12px;
+				}
+				.controls-row {
+					flex-wrap: wrap;
+					gap: 4px;
+				}
+				.controls-row > * {
+					flex: 1 1 100%;
+					min-width: 0;
+				}
+				.sheet-handle {
+					width: 30px;
+					height: 3px;
+					margin: 4px auto;
+				}
+				input[type="text"] {
+					font-size: 0.9em;
+					padding: 8px;
+				}
+				button {
+					font-size: 0.9em;
+					padding: 8px;
+				}
+				#radius {
+					margin-top: 4px;
+				}
+				#showBtn {
+					width: 40px;
+					height: 40px;
+					font-size: 20px;
+					bottom: 12px;
+					right: 12px;
+				}
+				/* ensure the sheet handle is at the top edge */
+				.controls .sheet-handle {
+					margin-top: 4px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<button id="showBtn" aria-label="Show Controls"></button>
+		
+		<div class="controls" id="controls">
+			<div class="sheet-handle"></div>
+			
+			<div class="controls-row">
+				<label>Radius: <span id="radiusValue">500</span> m</label>
+				<input type="range" id="radius" min="100" max="2000" value="500" step="100" />
+			</div>
+			
+			<div class="controls-row">
+				<input
+				type="text"
+				id="searchInput"
+				placeholder="Search location…"
+				aria-label="Search location"
+				/>
+				<button id="searchBtn" class="btn-primary">Go</button>
+			</div>
+			
+			<div class="controls-row">
+				<button id="locateBtn" class="btn-primary">Locate Me</button>
+				<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">Hide</button>
+				<button id="fullscreenBtn" class="btn-success">Full</button>
+			</div>
+		</div>
+		
+		<div id="map"></div>
+		
+		<!-- Leaflet JS (all lowercase!) -->
+		<script src="https://unpkg.com/leaflet/dist/leaflet.js" crossorigin=""></script>
+		<script>
+			const DEFAULT = { lat: 1.283, lon: 103.860 };
+			const map = L.map('map', {
+				zoomControl: false,
+				attributionControl: false
+			}).setView([DEFAULT.lat, DEFAULT.lon], 15);
+			L.control.zoom({ position: 'topright' }).addTo(map);
+			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+				attribution: '© OpenStreetMap contributors',
+				crossOrigin: true
+			}).addTo(map);
+			
+			const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
+			const stopLayer = L.layerGroup().addTo(map);
+			let userMarker = null,
+			userPos = null,
+			stops = [];
+			
+			const ctrls = document.getElementById('controls');
+			const showBtn = document.getElementById('showBtn');
+			const radInput = document.getElementById('radius');
+			const radValue = document.getElementById('radiusValue');
+			const searchIn = document.getElementById('searchInput');
+			
+			radInput.oninput = () => {
+				radValue.textContent = radInput.value;
+				circle.setRadius(+radInput.value);
+				renderStops();
+			};
+			
+			document.getElementById('searchBtn').onclick = searchLocation;
+			document.getElementById('locateBtn').onclick = locateMe;
+			document.getElementById('toggleBtn').onclick = () => {
+				ctrls.classList.toggle('hidden');
+				showBtn.style.display = ctrls.classList.contains('hidden') ? 'flex' : 'none';
+				map.invalidateSize();
+			};
+			showBtn.onclick = () => document.getElementById('toggleBtn').click();
+			document.getElementById('fullscreenBtn').onclick = () => {
+				document.fullscreenElement
+				? document.exitFullscreen()
+				: document.documentElement.requestFullscreen();
+			};
+			
+			function locateMe() {
+				navigator.geolocation.getCurrentPosition(
+				pos => setUser({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+				() => alert('Unable to retrieve your location')
+				);
+			}
+			
+			function searchLocation() {
+				const q = searchIn.value.trim();
+				if (!q) return;
+				fetch(
+				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+					q
+				)}`,
+				{
+					headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
+				}
+				)
+				.then(r => r.json())
+				.then(data => {
+					if (!data.length) return alert('Location not found');
+					setUser({ lat: +data[0].lat, lon: +data[0].lon });
+				})
+				.catch(() => alert('Search failed'));
+			}
+			
+			function setUser(pos) {
+				userPos = pos;
+				if (!userMarker) {
+					userMarker = L.marker([pos.lat, pos.lon])
+					.addTo(map)
+					.bindPopup('You are here')
+					.openPopup();
+				} else {
+					userMarker.setLatLng([pos.lat, pos.lon]);
+				}
+				circle.setLatLng([pos.lat, pos.lon]);
+				map.setView([pos.lat, pos.lon], map.getZoom());
+				renderStops();
+			}
+			
+			function loadStops() {
+				fetch('bus_stop_list_sg.json')
+				.then(r => r.text())
+				.then(txt => {
+					const clean = txt.replace(/^[ \t]*\/\/.*(?:\r?\n)?/gm, '');
+					stops = JSON.parse(clean);
+					const p = new URLSearchParams(window.location.search);
+					const lat = parseFloat(p.get('lat')),
+					lon = parseFloat(p.get('lon'));
+					if (!isNaN(lat) && !isNaN(lon)) {
+						setUser({ lat, lon });
+					} else {
+						locateMe();
+					}
+				})
+				.catch(() => alert('Failed to load bus stops'));
+			}
+			
+			function renderStops() {
+				if (!userPos) return;
+				stopLayer.clearLayers();
+				stops.forEach(s => {
+					if (
+					map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <=
+					+radInput.value
+					) {
+						L.marker([s.Latitude, s.Longitude])
+						.bindPopup(
+						`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`
+						)
+						.addTo(stopLayer);
+					}
+				});
+			}
+			
+			loadStops();
+			searchIn.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					searchLocation();
+				}
+			});
+		</script>
+	</body>
 </html>
