@@ -2,137 +2,192 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Nearby Bus Stops</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
+  <title>SG Nearby Bus Stops</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; }
-    #map { height: 60vh; }
-    #controls { padding: 1em; background: #f7f7f7; }
-    #stops { padding: 1em; max-height: 30vh; overflow: auto; }
-    label { margin-right: 0.5em; }
-    .stop-item { margin-bottom: 0.5em; }
+    body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; overflow: hidden; }
+    #map { height: 100%; }
+
+    /* Bottom sheet controls */
+    .controls {
+      position: absolute;
+      bottom: env(safe-area-inset-bottom); /* iOS safe area */
+      left: 0;
+      width: 100%;
+      max-height: 50%;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.2);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 1000;
+      transform: translateY(0);
+      transition: transform 0.3s ease-in-out;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      touch-action: none;
+	  box-sizing: border-box;
+    }
+    .controls.hidden { transform: translateY(100%); }
+
+    /* Drag handle */
+    .sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: #ccc;
+      border-radius: 2px;
+      margin: 0 auto;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .controls-row input[type="range"] { flex: 1; }
+    .controls-row input[type="text"] { flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1em; }
+    .controls-row button { flex: 1; padding: 10px; border: none; border-radius: 6px; color: #fff; font-size: 1em; }
+    .btn-primary { background: #007bff; }
+    .btn-primary:active { background: #0056b3; }
+    .btn-success { background: #28a745; }
+    .btn-toggle { background: #6c757d; }
+
+    /* Show-panel handle */
+    #showBtn {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 1001;
+      width: 48px;
+      height: 48px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 24px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Responsive bottom sheet height */
+    @media (min-height: 800px) {
+      .controls { max-height: 35%; }
+    }
+    @media (orientation: landscape) {
+      .controls { max-height: 50%; }
+    }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <button id="locate">Use My Location</button>
-    <input type="text" id="search" placeholder="Search place…">
-    <button id="doSearch">Go</button>
-    <label>
-      Radius:
-      <input type="range" id="radius" min="0.1" max="5" step="0.1" value="1">
-      <span id="radiusVal">1.0</span> km
-    </label>
+  <button id="showBtn"></button>
+  <div class="controls" id="controls">
+    <div class="controls-row">
+      <label>Radius: <span id="radiusValue">500</span> m</label>
+      <input type="range" id="radius" min="100" max="2000" value="500" step="100">
+    </div>
+    <div class="controls-row">
+      <input type="text" id="searchInput" placeholder="Search location...">
+      <button id="searchBtn" class="btn-primary">Go</button>
+    </div>
+    <div class="controls-row">
+      <button id="locateBtn" class="btn-primary">Locate Me</button>
+      <button id="toggleBtn" class="btn-toggle">Hide</button>
+      <button id="fullscreenBtn" class="btn-success">Full</button>
+    </div>
   </div>
   <div id="map"></div>
-  <div id="stops"></div>
 
-  <!-- Leaflet CSS/JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    console.log('App init');
+    const DEFAULT_COORD = { lat: 1.283, lon: 103.860 };
+    let userPos = null;
 
-    const map = L.map('map').setView([1.3521, 103.8198], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OSM contributors'
-    }).addTo(map);
+    const map = L.map('map', { zoomControl: false }).setView([DEFAULT_COORD.lat, DEFAULT_COORD.lon], 15);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution: '© OpenStreetMap contributors' }).addTo(map);
 
-    let userMarker, stopMarkers = [];
-
+    const circle = L.circle([DEFAULT_COORD.lat, DEFAULT_COORD.lon], { radius: 500 }).addTo(map);
+    let userMarker;
+    let busStops = [];
+    const controls = document.getElementById('controls');
+    const showBtn = document.getElementById('showBtn');
     const radiusInput = document.getElementById('radius');
-    const radiusVal = document.getElementById('radiusVal');
+    const radiusValueEl = document.getElementById('radiusValue');
+    const searchInput = document.getElementById('searchInput');
+
     radiusInput.addEventListener('input', () => {
-      radiusVal.textContent = parseFloat(radiusInput.value).toFixed(1);
+      radiusValueEl.textContent = radiusInput.value;
+      circle.setRadius(+radiusInput.value);
+      updateMarkers();
+    });
+    document.getElementById('searchBtn').addEventListener('click', searchLocation);
+    searchInput.addEventListener('keydown', e => { if (e.key==='Enter') searchLocation(); });
+    document.getElementById('locateBtn').addEventListener('click', locateUser);
+    document.getElementById('toggleBtn').addEventListener('click', () => {
+      controls.classList.toggle('hidden');
+      showBtn.style.display = controls.classList.contains('hidden') ? 'block' : 'none';
+      map.invalidateSize();
+    });
+    showBtn.addEventListener('click', () => document.getElementById('toggleBtn').click());
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
     });
 
-    document.getElementById('locate').addEventListener('click', () => {
-      console.log('→ requesting geolocation');
-      navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError);
-    });
-
-    document.getElementById('doSearch').addEventListener('click', () => {
-      const q = document.getElementById('search').value.trim();
-      if (!q) return alert('Enter a place to search');
-      console.log('→ geocode()', q);
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=sg&limit=1&q=${encodeURIComponent(q)}`)
-        .then(r => r.json())
-        .then(results => {
-          if (!results.length) throw new Error('No results');
-          const { lat, lon, display_name } = results[0];
-          console.log('← geocode result', display_name, lat, lon);
-          renderNearby({ lat: +lat, lon: +lon, msg: display_name });
-        })
-        .catch(err => {
-          console.error('✗ geocode failed', err);
-          alert('Place not found');
-        });
-    });
-
-    function onGeoSuccess(pos) {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      console.log('← geolocation success', lat, lon);
-      renderNearby({ lat, lon, msg: `You are at ${lat.toFixed(5)},${lon.toFixed(5)}` });
+    function locateUser() {
+      navigator.geolocation.getCurrentPosition(p => setPosition({ lat: p.coords.latitude, lon: p.coords.longitude }), () => alert('Unable to locate'));  
+    }
+    function searchLocation() {
+      const q = searchInput.value.trim(); if (!q) return;
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+        .then(r => r.json()).then(data => { if (!data.length) return alert('Not found'); setPosition({ lat: +data[0].lat, lon: +data[0].lon }); });
     }
 
-    function onGeoError(err) {
-      console.error('✗ geolocation error', err);
-      alert('Failed to get location');
+    function setPosition(pos) {
+      userPos = pos;
+      if (userMarker) userMarker.setLatLng([pos.lat, pos.lon]);
+      else {
+        userMarker = L.marker([pos.lat, pos.lon], { icon: L.divIcon({ className:'pulse-icon' }) }).addTo(map);
+        userMarker.bindPopup('You are here').openPopup();
+      }
+      circle.setLatLng([pos.lat, pos.lon]);
+      map.setView([pos.lat, pos.lon], map.getZoom());
+      updateMarkers();
     }
 
-    function renderNearby({ lat, lon, msg }) {
-      console.log('renderNearby()', { lat, lon, msg });
-      map.setView([lat, lon], 15);
-      if (userMarker) map.removeLayer(userMarker);
-      userMarker = L.marker([lat, lon]).addTo(map).bindPopup(msg).openPopup();
-
-      const radius_km = parseFloat(radiusInput.value);
-      console.log(`→ fetch stops (radius_km=${radius_km})`);
-      const proxyUrl = 
-        `https://yapweijun1996.com/api/LTA_DataMall/busStops.php` +
-        `?lat=${lat}&lon=${lon}&radius_km=${radius_km}`;
-
-      fetch(proxyUrl)
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        })
-        .then(json => {
-          console.log('← stops response', json);
-          showStops(json.value || []);
-        })
-        .catch(err => {
-          console.error('✗ stops fetch failed', err);
-          alert('Failed to load bus stops');
-        });
-    }
-
-    function showStops(stops) {
-      console.log('→ plotting', stops.length, 'stops');
-      stopMarkers.forEach(m => map.removeLayer(m));
-      stopMarkers = [];
-      const list = document.getElementById('stops');
-      list.innerHTML = '';
-
-      stops.forEach(s => {
-        // now using distance_km
-        const d = s.distance_km;
-        console.log(` • ${s.BusStopCode} ${d.toFixed(2)} km`);
-        const div = document.createElement('div');
-        div.className = 'stop-item';
-        div.textContent = 
-          `${s.BusStopCode} – ${s.Description} (${d.toFixed(2)} km)`;
-        list.appendChild(div);
-
-        const marker = L.marker([s.Latitude, s.Longitude])
-          .addTo(map)
-          .bindPopup(`${s.BusStopCode}: ${s.Description}<br>${d.toFixed(2)} km`);
-        stopMarkers.push(marker);
+    function loadBusStops() {
+      // Load stops JSON
+      fetch('bus_stop_list_sg.json').then(r => r.text()).then(txt => {
+        const clean = txt.replace(/^[ \t]*\/\/.*(\r?\n)*/gm,'').trim();
+        busStops = JSON.parse(clean);
+        // Priority to URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const latParam = parseFloat(params.get('lat'));
+        const lonParam = parseFloat(params.get('lon'));
+        if (!isNaN(latParam) && !isNaN(lonParam)) {
+          setPosition({ lat: latParam, lon: lonParam });
+        } else {
+          locateUser();
+        }
       });
     }
 
-    // auto-locate on load
-    document.getElementById('locate').click();
+    function updateMarkers() {
+      if (!userPos) return;
+      map.eachLayer(l => l instanceof L.Marker && l !== userMarker && l !== circle) && map.eachLayer(l => map.removeLayer(l));
+      busStops.forEach(s => {
+        if (map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <= +radiusInput.value) {
+          L.marker([s.Latitude, s.Longitude]).addTo(map)
+            .bindPopup(`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`);
+        }
+      });
+    }
+    loadBusStops();
   </script>
 </body>
 </html>
