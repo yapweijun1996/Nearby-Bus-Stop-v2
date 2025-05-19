@@ -9,6 +9,7 @@
     #controls { padding: 1em; background: #f7f7f7; }
     #stops { padding: 1em; max-height: 30vh; overflow: auto; }
     label { margin-right: 0.5em; }
+    .stop-item { margin-bottom: 0.5em; }
   </style>
 </head>
 <body>
@@ -59,7 +60,7 @@
           if (!results.length) throw new Error('No results');
           const { lat, lon, display_name } = results[0];
           console.log('← geocode result', display_name, lat, lon);
-          renderNearby({ lat, lon, msg: display_name });
+          renderNearby({ lat: +lat, lon: +lon, msg: display_name });
         })
         .catch(err => {
           console.error('✗ geocode failed', err);
@@ -85,11 +86,11 @@
       if (userMarker) map.removeLayer(userMarker);
       userMarker = L.marker([lat, lon]).addTo(map).bindPopup(msg).openPopup();
 
-      const radius = parseFloat(radiusInput.value);
-      console.log(`→ fetch stops (radius=${radius} km)`);
+      const radius_km = parseFloat(radiusInput.value);
+      console.log(`→ fetch stops (radius_km=${radius_km})`);
       const proxyUrl = 
         `https://yapweijun1996.com/api/LTA_DataMall/busStops.php` +
-        `?lat=${lat}&lon=${lon}&radius=${radius}`;
+        `?lat=${lat}&lon=${lon}&radius_km=${radius_km}`;
 
       fetch(proxyUrl)
         .then(r => {
@@ -108,23 +109,24 @@
 
     function showStops(stops) {
       console.log('→ plotting', stops.length, 'stops');
-      // clear old
       stopMarkers.forEach(m => map.removeLayer(m));
       stopMarkers = [];
       const list = document.getElementById('stops');
       list.innerHTML = '';
 
       stops.forEach(s => {
-        const { BusStopCode, Description, Latitude, Longitude, distance } = s;
-        console.log(` • ${BusStopCode} ${distance.toFixed(2)}km`);
-        const li = document.createElement('div');
-        li.textContent = `${BusStopCode} – ${Description} (${distance.toFixed(2)} km)`;
-        list.appendChild(li);
+        // now using distance_km
+        const d = s.distance_km;
+        console.log(` • ${s.BusStopCode} ${d.toFixed(2)} km`);
+        const div = document.createElement('div');
+        div.className = 'stop-item';
+        div.textContent = 
+          `${s.BusStopCode} – ${s.Description} (${d.toFixed(2)} km)`;
+        list.appendChild(div);
 
-        const marker = L.marker([Latitude, Longitude])
+        const marker = L.marker([s.Latitude, s.Longitude])
           .addTo(map)
-          .bindPopup(`${BusStopCode}: ${Description}`)
-          .openPopup();
+          .bindPopup(`${s.BusStopCode}: ${s.Description}<br>${d.toFixed(2)} km`);
         stopMarkers.push(marker);
       });
     }
