@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nearby Bus Stops</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; height: 100vh; display: flex; }
+    #map { flex: 1; }
+    #panel {
+      width: 300px; max-width:100%; background:#fff;
+      box-shadow:-2px 0 5px rgba(0,0,0,0.1);
+      display:flex; flex-direction:column;
+    }
+    #panel header {
+      padding:1rem; background:#0066cc;
+      color:#fff; text-align:center; font-size:1.2rem;
+    }
+    #search {
+      display: flex; padding: 0.5rem 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    #search input {
+      flex: 1; padding: 0.5rem; border:1px solid #ccc; border-radius:4px 0 0 4px;
+    }
+    #search button {
+      padding: 0.5rem 1rem; border:none; background:#005fa3; color:#fff;
+      border-radius:0 4px 4px 0; cursor:pointer;
+    }
+    #search button:hover { background:#004a7c; }
+
+    #status { padding:.75rem 1rem; color:#333; font-size:.9rem }
+    #stops { list-style:none; overflow-y:auto; flex:1; }
+    #stops li {
+      padding:.75rem 1rem; border-bottom:1px solid #eee;
+      cursor:pointer; transition:background .2s;
+    }
+    #stops li:hover { background:#f5f5f5 }
+    .stop-name { font-weight:bold }
+    .stop-code a {
+      display:inline-block; margin-top:.25rem;
+      font-size:.85rem; color:#0066cc; text-decoration:none;
+    }
+    .stop-code a:hover { text-decoration:underline }
+    .distance { font-size:.85rem; color:#666; margin-top:.25rem }
+
+    @media(max-width:600px){
+      body { flex-direction:column }
+      #map { height:60vh }
+      #panel {
+        width:100%; height:40vh;
+        box-shadow:0 -2px 5px rgba(0,0,0,0.1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <header>Nearby Bus Stops</header>
+    <div id="search">
+      <input id="searchInput" placeholder="Search location…" />
+      <button id="searchBtn">Find</button>
+    </div>
+    <div id="status">Initializing…</div>
+    <ul id="stops"></ul>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const DEFAULT_LAT = 1.2834, DEFAULT_LON = 103.8607;
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371, toRad = d => d*Math.PI/180;
+      const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+      const a = Math.sin(dLat/2)**2 +
+                Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*
+                Math.sin(dLon/2)**2;
+      return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+
+    async function fetchBusStops() {
+      const res = await fetch('https://yapweijun1996.com/api/LTA_DataMall/busStops.php');
+      if (!res.ok) throw new Error(res.statusText);
+      return (await res.json()).value;
+    }
+
+    async function geocode(query) {
+      const url =
+        'https://nominatim.openstreetmap.org/search' +
+        '?format=json' +
+        '&countrycodes=sg' +
+        '&limit=1' +
+        '&viewbox=103.6,1.5,104.0,1.1' +
+        '&bounded=1' +
+        '&q=' + encodeURIComponent(query);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Geocode failed');
+      const data = await res.json();
+      if (!data.length) throw new Error('Location not found');
+      return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+    }
+
+    async function showNearby(lat, lon, statusMsg) {
+      document.getElementById('status').textContent = statusMsg;
+      const map = window._map || L.map('map', { zoomControl: false }).setView([lat, lon], 13);
+      if (!window._map) {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        window._map = map;
+      }
+      const stopsUl = document.getElementById('stops');
+      stopsUl.innerHTML = '';
+      if (window._markers) window._markers.forEach(m=>map.removeLayer(m));
+      window._markers = [];
+
+      const userMarker = L.circleMarker([lat, lon], {
+        radius:8, color:'#0066cc', fillColor:'#0066cc', fillOpacity:0.8
+      }).addTo(map).bindPopup('Reference point').openPopup();
+      window._markers.push(userMarker);
+
+      const stops = await fetchBusStops();
+      stops.forEach(s => {
+        s.distance = getDistance(lat, lon, +s.Latitude, +s.Longitude);
+      });
+      const nearest = stops.sort((a,b)=>a.distance-b.distance).slice(0,5);
+
+      const group = L.featureGroup(
+        nearest.map(s=>L.marker([s.Latitude,s.Longitude]))
+        .concat(userMarker)
+      );
+      map.fitBounds(group.getBounds().pad(0.3));
+
+      nearest.forEach(s => {
+        const url = `https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}`;
+        const m = L.marker([s.Latitude, s.Longitude])
+          .addTo(map)
+          .bindPopup(`<div style="cursor:pointer">
+                        <b>${s.Description}</b><br>
+                        <small>Code: ${s.BusStopCode}</small><br>
+                        ${s.distance.toFixed(2)} km
+                      </div>`);
+        m.on('popupopen', e => {
+          e.popup.getElement()
+            .querySelector('.leaflet-popup-content')
+            .addEventListener('click', ()=>window.open(url,'_blank'));
+        });
+        window._markers.push(m);
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div class="stop-name">${s.Description}</div>
+          <div class="stop-code">
+            <a href="${url}" target="_blank">Code: ${s.BusStopCode}</a>
+          </div>
+          <div class="distance">${s.distance.toFixed(2)} km away</div>`;
+        li.onclick = ()=>{ map.setView(m.getLatLng(),16); m.openPopup(); };
+        stopsUl.appendChild(li);
+      });
+    }
+
+    async function init() {
+      const params = new URLSearchParams(location.search);
+      if (params.has('lat') && params.has('lon')) {
+        const lat = parseFloat(params.get('lat')), lon = parseFloat(params.get('lon'));
+        if (!isNaN(lat)&&!isNaN(lon))
+          return showNearby(lat,lon,`Using URL coords: ${lat.toFixed(5)},${lon.toFixed(5)}`);
+      }
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => showNearby(pos.coords.latitude,pos.coords.longitude,
+                            `You are at ${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`),
+          () => showNearby(DEFAULT_LAT,DEFAULT_LON,'Geolocation denied/unavailable.'),
+          { enableHighAccuracy:true, timeout:5000, maximumAge:0 }
+        );
+      } else {
+        showNearby(DEFAULT_LAT,DEFAULT_LON,'Geolocation not supported.');
+      }
+
+      document.getElementById('searchBtn').onclick = async () => {
+        const q = document.getElementById('searchInput').value.trim();
+        if (!q) return;
+        try {
+          document.getElementById('status').textContent = 'Searching…';
+          const [lat,lon] = await geocode(q);
+          showNearby(lat,lon,`Search result: ${q}`);
+        } catch(e) {
+          document.getElementById('status').textContent = e.message;
+        }
+      };
+    }
+
+    init();
+  </script>
+</body>
+</html>
