@@ -125,7 +125,7 @@
       const radius_m = Math.round(R_km * 1000);
 
       // fetch from proxy with radius
-      const proxyUrl = `busStops.php?lat=${lat}&lon=${lon}&radius=${radius_m}`;
+      const proxyUrl = `https://yapweijun1996.com/api/LTA_DataMall/busStops.php?lat=${lat}&lon=${lon}&radius=${radius_m}`;
       const res = await fetch(proxyUrl);
       if (!res.ok) throw new Error('BusStops proxy error');
       const { value: nearest } = await res.json();
