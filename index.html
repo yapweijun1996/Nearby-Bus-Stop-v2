@@ -116,7 +116,7 @@
       }).addTo(map).bindPopup('Reference point').openPopup();
       window._markers.push(ref);
 
-      const proxyUrl = `busStops.php?lat=${lat}&lon=${lon}`;
+      const proxyUrl = `https://yapweijun1996.com/api/LTA_DataMall/busStops.php?lat=${lat}&lon=${lon}`;
       log(' → fetch stops', proxyUrl);
       const res = await fetch(proxyUrl);
       if (!res.ok) throw new Error('BusStops proxy error: ' + res.status);
