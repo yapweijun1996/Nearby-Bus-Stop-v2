@@ -2,30 +2,23 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta
-		name="viewport"
-		content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes"
-		/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
 		<title>SG Nearby Bus Stops</title>
 		
-		<!-- Leaflet CSS (all lowercase!) -->
-		<link
-		rel="stylesheet"
-		href="https://unpkg.com/leaflet/dist/leaflet.css"
-		crossorigin=""
-		/>
-		
+		<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" crossorigin="" />
 		<style>
-			body,
-			html {
+			html, body {
 				margin: 0;
 				padding: 0;
 				height: 100%;
 				font-family: Arial, sans-serif;
 				overflow: hidden;
+				touch-action: pan-x pan-y pinch-zoom;
 			}
+			
 			#map {
 				height: 100%;
+				touch-action: pan-x pan-y pinch-zoom;
 			}
 			
 			.controls {
@@ -48,9 +41,11 @@
 				border-top-right-radius: 12px;
 				box-sizing: border-box;
 			}
+			
 			.controls.hidden {
 				transform: translateY(220%);
 			}
+			
 			.sheet-handle {
 				width: 40px;
 				height: 4px;
@@ -64,9 +59,11 @@
 				gap: 8px;
 				align-items: center;
 			}
+			
 			.controls-row input[type="range"] {
 				flex: 1;
 			}
+			
 			.controls-row input[type="text"] {
 				flex: 2;
 				padding: 10px;
@@ -74,6 +71,7 @@
 				border-radius: 6px;
 				font-size: 1em;
 			}
+			
 			.controls-row button {
 				flex: 1;
 				padding: 10px;
@@ -82,15 +80,19 @@
 				color: #fff;
 				font-size: 1em;
 			}
+			
 			.btn-primary {
 				background: #007bff;
 			}
+			
 			.btn-primary:active {
 				background: #0056b3;
 			}
+			
 			.btn-success {
 				background: #28a745;
 			}
+			
 			.btn-toggle {
 				background: #6c757d;
 			}
@@ -111,9 +113,11 @@
 				align-items: center;
 				justify-content: center;
 			}
+			
 			#showBtn::before {
 				content: '▲';
 			}
+			
 			.leaflet-control-attribution {
 				display: none !important;
 			}
@@ -123,49 +127,55 @@
 					max-height: 35%;
 				}
 			}
+			
 			@media (orientation: landscape) {
 				.controls {
 					max-height: 50%;
 				}
 			}
 			
-			/*— Mobile responsiveness for narrow screens —*/
 			@media (max-width: 480px) {
 				.controls {
 					padding: 6px;
 					gap: 4px;
 					top: 0;
 					bottom: auto;
-					
 					border-top-left-radius: 0;
 					border-top-right-radius: 0;
 					border-bottom-left-radius: 12px;
 					border-bottom-right-radius: 12px;
 				}
+				
 				.controls-row {
 					flex-wrap: wrap;
 					gap: 4px;
 				}
+				
 				.controls-row > * {
 					flex: 1 1 100%;
 					min-width: 0;
 				}
+				
 				.sheet-handle {
 					width: 30px;
 					height: 3px;
 					margin: 4px auto;
 				}
+				
 				input[type="text"] {
 					font-size: 0.9em;
 					padding: 8px;
 				}
+				
 				button {
 					font-size: 0.9em;
 					padding: 8px;
 				}
+				
 				#radius {
 					margin-top: 4px;
 				}
+				
 				#showBtn {
 					width: 40px;
 					height: 40px;
@@ -173,7 +183,7 @@
 					bottom: 12px;
 					right: 12px;
 				}
-				/* ensure the sheet handle is at the top edge */
+				
 				.controls .sheet-handle {
 					margin-top: 4px;
 				}
@@ -192,12 +202,7 @@
 			</div>
 			
 			<div class="controls-row">
-				<input
-				type="text"
-				id="searchInput"
-				placeholder="Search location…"
-				aria-label="Search location"
-				/>
+				<input type="text" id="searchInput" placeholder="Search location…" aria-label="Search location" />
 				<button id="searchBtn" class="btn-primary">Go</button>
 			</div>
 			
@@ -210,13 +215,15 @@
 		
 		<div id="map"></div>
 		
-		<!-- Leaflet JS (all lowercase!) -->
 		<script src="https://unpkg.com/leaflet/dist/leaflet.js" crossorigin=""></script>
 		<script>
 			const DEFAULT = { lat: 1.283, lon: 103.860 };
 			const map = L.map('map', {
 				zoomControl: false,
-				attributionControl: false
+				attributionControl: false,
+				doubleClickZoom: true,
+				touchZoom: true,
+				tap: false
 			}).setView([DEFAULT.lat, DEFAULT.lon], 15);
 			L.control.zoom({ position: 'topright' }).addTo(map);
 			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -226,9 +233,7 @@
 			
 			const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
 			const stopLayer = L.layerGroup().addTo(map);
-			let userMarker = null,
-			userPos = null,
-			stops = [];
+			let userMarker = null, userPos = null, stops = [];
 			
 			const ctrls = document.getElementById('controls');
 			const showBtn = document.getElementById('showBtn');
@@ -266,14 +271,9 @@
 			function searchLocation() {
 				const q = searchIn.value.trim();
 				if (!q) return;
-				fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-					q
-				)}`,
-				{
+				fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`, {
 					headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
-				}
-				)
+				})
 				.then(r => r.json())
 				.then(data => {
 					if (!data.length) return alert('Location not found');
@@ -319,10 +319,7 @@
 				if (!userPos) return;
 				stopLayer.clearLayers();
 				stops.forEach(s => {
-					if (
-					map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <=
-					+radInput.value
-					) {
+					if (map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <= +radInput.value) {
 						L.marker([s.Latitude, s.Longitude])
 						.bindPopup(
 						`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`
