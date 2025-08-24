@@ -7,13 +7,33 @@
 		
 		<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" crossorigin="" />
 		<style>
+			:root {
+				--primary: #4f46e5;
+				--primary-hover: #3730a3;
+				--primary-active: #312e81;
+				--success: #059669;
+				--success-hover: #047857;
+				--neutral: #64748b;
+				--neutral-hover: #475569;
+				--surface: rgba(255, 255, 255, 0.95);
+				--surface-dark: rgba(30, 41, 59, 0.95);
+				--border: rgba(148, 163, 184, 0.2);
+				--text: #1e293b;
+				--text-light: #64748b;
+				--shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+				--radius: 12px;
+				--radius-lg: 16px;
+				--radius-full: 9999px;
+			}
+			
 			html, body {
 				margin: 0;
 				padding: 0;
 				height: 100%;
-				font-family: Arial, sans-serif;
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 				overflow: hidden;
 				touch-action: pan-x pan-y pinch-zoom;
+				background: #f8fafc;
 			}
 			
 			#map {
@@ -24,98 +44,207 @@
 			.controls {
 				position: absolute;
 				bottom: env(safe-area-inset-bottom);
-				left: 0;
-				width: 100%;
-				max-height: 50%;
-				background: rgba(255, 255, 255, 0.8);
-				backdrop-filter: blur(10px);
-				box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.2);
-				padding: 8px;
+				left: 16px;
+				right: 16px;
+				width: auto;
+				max-height: 45%;
+				background: var(--surface);
+				backdrop-filter: blur(20px) saturate(180%);
+				box-shadow: var(--shadow);
+				padding: 20px;
 				display: flex;
 				flex-direction: column;
-				gap: 6px;
+				gap: 16px;
 				z-index: 1000;
 				transform: translateY(0);
-				transition: transform 0.3s ease-in-out;
-				border-top-left-radius: 12px;
-				border-top-right-radius: 12px;
+				transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+				border-radius: var(--radius-lg);
 				box-sizing: border-box;
+				border: 1px solid var(--border);
 			}
 			
 			.controls.hidden {
-				transform: translateY(220%);
+				transform: translateY(calc(100% + 32px));
+				opacity: 0;
 			}
 			
 			.sheet-handle {
-				width: 40px;
+				width: 36px;
 				height: 4px;
-				background: #ccc;
-				border-radius: 2px;
-				margin: 0 auto;
+				background: var(--neutral);
+				border-radius: var(--radius-full);
+				margin: 0 auto -4px auto;
+				opacity: 0.6;
+				transition: opacity 0.2s ease;
+			}
+			
+			.sheet-handle:hover {
+				opacity: 1;
 			}
 			
 			.controls-row {
 				display: flex;
-				gap: 8px;
+				gap: 12px;
 				align-items: center;
+			}
+			
+			.controls-row label {
+				font-weight: 500;
+				color: var(--text);
+				font-size: 0.875rem;
+				white-space: nowrap;
+				min-width: fit-content;
+			}
+			
+			#radiusValue {
+				font-weight: 600;
+				color: var(--primary);
 			}
 			
 			.controls-row input[type="range"] {
 				flex: 1;
+				height: 6px;
+				-webkit-appearance: none;
+				appearance: none;
+				background: #e2e8f0;
+				border-radius: var(--radius-full);
+				outline: none;
+				transition: background 0.2s ease;
+			}
+			
+			.controls-row input[type="range"]::-webkit-slider-thumb {
+				-webkit-appearance: none;
+				appearance: none;
+				width: 20px;
+				height: 20px;
+				background: var(--primary);
+				border-radius: 50%;
+				cursor: pointer;
+				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+				transition: all 0.2s ease;
+			}
+			
+			.controls-row input[type="range"]::-webkit-slider-thumb:hover {
+				transform: scale(1.1);
+				box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
+			}
+			
+			.controls-row input[type="range"]::-moz-range-thumb {
+				width: 20px;
+				height: 20px;
+				background: var(--primary);
+				border-radius: 50%;
+				cursor: pointer;
+				border: none;
+				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
 			}
 			
 			.controls-row input[type="text"] {
-				flex: 2;
-				padding: 10px;
-				border: 1px solid #ddd;
-				border-radius: 6px;
-				font-size: 1em;
+				flex: 1;
+				padding: 12px 16px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				font-size: 0.875rem;
+				font-weight: 400;
+				color: var(--text);
+				background: #ffffff;
+				transition: all 0.2s ease;
+				outline: none;
+			}
+			
+			.controls-row input[type="text"]:focus {
+				border-color: var(--primary);
+				box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+			}
+			
+			.controls-row input[type="text"]::placeholder {
+				color: var(--text-light);
 			}
 			
 			.controls-row button {
-				flex: 1;
-				padding: 10px;
+				padding: 12px 20px;
 				border: none;
-				border-radius: 6px;
-				color: #fff;
-				font-size: 1em;
+				border-radius: var(--radius);
+				color: #ffffff;
+				font-size: 0.875rem;
+				font-weight: 500;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				outline: none;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				min-height: 44px;
 			}
 			
 			.btn-primary {
-				background: #007bff;
+				background: var(--primary);
+				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+			}
+			
+			.btn-primary:hover {
+				background: var(--primary-hover);
+				transform: translateY(-1px);
+				box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
 			}
 			
 			.btn-primary:active {
-				background: #0056b3;
+				background: var(--primary-active);
+				transform: translateY(0);
+				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
 			}
 			
 			.btn-success {
-				background: #28a745;
+				background: var(--success);
+				box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+			}
+			
+			.btn-success:hover {
+				background: var(--success-hover);
+				transform: translateY(-1px);
+				box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3);
 			}
 			
 			.btn-toggle {
-				background: #6c757d;
+				background: var(--neutral);
+				box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
+			}
+			
+			.btn-toggle:hover {
+				background: var(--neutral-hover);
+				transform: translateY(-1px);
+				box-shadow: 0 4px 8px rgba(100, 116, 139, 0.3);
 			}
 			
 			#showBtn {
 				position: absolute;
-				bottom: 16px;
+				bottom: calc(16px + env(safe-area-inset-bottom));
 				right: 16px;
 				z-index: 1001;
-				width: 48px;
-				height: 48px;
-				background: #007bff;
-				color: #fff;
+				width: 56px;
+				height: 56px;
+				background: var(--primary);
+				color: #ffffff;
 				border: none;
-				border-radius: 50%;
-				font-size: 24px;
+				border-radius: var(--radius-full);
+				font-size: 20px;
 				display: none;
 				align-items: center;
 				justify-content: center;
+				cursor: pointer;
+				box-shadow: var(--shadow);
+				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+			
+			#showBtn:hover {
+				transform: scale(1.05) translateY(-2px);
+				box-shadow: 0 20px 40px -8px rgba(79, 70, 229, 0.4);
 			}
 			
 			#showBtn::before {
-				content: '▲';
+				content: '↑';
+				font-weight: 600;
 			}
 			
 			.leaflet-control-attribution {
@@ -134,58 +263,69 @@
 				}
 			}
 			
+			@media (max-width: 768px) {
+				.controls {
+					left: 12px;
+					right: 12px;
+					padding: 16px;
+					gap: 12px;
+				}
+				
+				.controls-row {
+					gap: 8px;
+				}
+				
+				.controls-row button {
+					padding: 10px 16px;
+					font-size: 0.8125rem;
+					min-height: 40px;
+				}
+				
+				.controls-row input[type="text"] {
+					padding: 10px 14px;
+					font-size: 0.8125rem;
+				}
+			}
+			
 			@media (max-width: 480px) {
 				.controls {
-					padding: 6px;
-					gap: 4px;
-					top: 0;
-					bottom: auto;
-					border-top-left-radius: 0;
-					border-top-right-radius: 0;
-					border-bottom-left-radius: 12px;
-					border-bottom-right-radius: 12px;
+					left: 8px;
+					right: 8px;
+					padding: 12px;
+					gap: 8px;
+					border-radius: var(--radius);
 				}
 				
 				.controls-row {
 					flex-wrap: wrap;
-					gap: 4px;
+					gap: 6px;
 				}
 				
-				.controls-row > * {
+				.controls-row > input[type="text"] {
 					flex: 1 1 100%;
+					margin-bottom: 4px;
+				}
+				
+				.controls-row > button {
+					flex: 1;
 					min-width: 0;
+					padding: 8px 12px;
+					font-size: 0.75rem;
+					min-height: 36px;
 				}
 				
 				.sheet-handle {
-					width: 30px;
+					width: 32px;
 					height: 3px;
-					margin: 4px auto;
-				}
-				
-				input[type="text"] {
-					font-size: 0.9em;
-					padding: 8px;
-				}
-				
-				button {
-					font-size: 0.9em;
-					padding: 8px;
-				}
-				
-				#radius {
-					margin-top: 4px;
+					margin-bottom: 0;
 				}
 				
 				#showBtn {
-					width: 40px;
-					height: 40px;
-					font-size: 20px;
-					bottom: 12px;
+					width: 48px;
+					height: 48px;
+					font-size: 18px;
+					bottom: calc(12px + env(safe-area-inset-bottom));
 					right: 12px;
-				}
-				
-				.controls .sheet-handle {
-					margin-top: 4px;
 				}
 			}
 		</style>
@@ -197,19 +337,39 @@
 			<div class="sheet-handle"></div>
 			
 			<div class="controls-row">
-				<label>Radius: <span id="radiusValue">500</span> m</label>
+				<label>Radius: <span id="radiusValue">500</span>m</label>
 				<input type="range" id="radius" min="100" max="2000" value="500" step="100" />
 			</div>
 			
 			<div class="controls-row">
-				<input type="text" id="searchInput" placeholder="Search location…" aria-label="Search location" />
-				<button id="searchBtn" class="btn-primary">Go</button>
+				<input type="text" id="searchInput" placeholder="Search for a location..." aria-label="Search location" />
+				<button id="searchBtn" class="btn-primary">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M21 21L16.514 16.506M19 10.5C19 15.194 15.194 19 10.5 19S2 15.194 2 10.5 5.806 2 10.5 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Search
+				</button>
 			</div>
 			
 			<div class="controls-row">
-				<button id="locateBtn" class="btn-primary">Locate Me</button>
-				<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">Hide</button>
-				<button id="fullscreenBtn" class="btn-success">Full</button>
+				<button id="locateBtn" class="btn-primary">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+					</svg>
+					Locate Me
+				</button>
+				<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Hide
+				</button>
+				<button id="fullscreenBtn" class="btn-success">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Fullscreen
+				</button>
 			</div>
 		</div>
 		
