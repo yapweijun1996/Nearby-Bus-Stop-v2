@@ -2,6 +2,15 @@
 
 This is a simple web application that displays nearby bus stops in Singapore on a map.
 
+## Demo 
+
+https://yapweijun1996.github.io/Nearby-Bus-Stop-v2/
+
+## Preview
+
+<img width="1437" height="794" alt="og_img" src="https://github.com/user-attachments/assets/78726f18-dde3-4773-bd51-8e8712e9ebd9" />
+
+
 ## Features
 
 -   **Locate Me**: Automatically finds your current location and displays it on the map.
