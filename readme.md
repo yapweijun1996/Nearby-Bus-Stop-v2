@@ -9,6 +9,7 @@ This is a simple web application that displays nearby bus stops in Singapore on 
 -   **Radius Control**: You can adjust the radius to find bus stops within a certain distance from your location.
 -   **Bus Stop Information**: Clicking on a bus stop marker will show the bus stop code, description, and a link to check bus arrival times.
 -   **Fullscreen Mode**: View the map in fullscreen for a better experience.
+-   **Modern UI**: A refreshed user interface with stylish popups and zoom controls for a better user experience.
 
 ## How to Use
 
