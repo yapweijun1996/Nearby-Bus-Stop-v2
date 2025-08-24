@@ -18,3 +18,11 @@ This is a simple web application that displays nearby bus stops in Singapore on 
 3.  Use the search bar to find a specific location.
 4.  Adjust the radius slider to control the distance for finding bus stops.
 5.  Click on any bus stop icon to get more details.
+
+## Business Use
+
+This application is suitable for personal and non-commercial use. For business or high-traffic applications, please be aware that it relies on the free [Nominatim API](https://nominatim.org/release-docs/latest/api/Search/) for location searching, which has a strict [usage policy](https://operations.osmfoundation.org/policies/nominatim/). High-volume usage may require a commercial plan or a self-hosted instance.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
