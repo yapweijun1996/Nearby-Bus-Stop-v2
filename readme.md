@@ -1,32 +1,65 @@
 # SG Nearby Bus Stops
 
-This is a simple web application that displays nearby bus stops in Singapore on a map.
+A modern web application that displays nearby bus stops in Singapore on an interactive map, built with vanilla JavaScript and Leaflet.
 
-## Demo 
+## Demo
 
 https://yapweijun1996.github.io/Nearby-Bus-Stop-v2/
 
 ## Preview
 
-<img width="1437" height="794" alt="og_img" src="https://github.com/user-attachments/assets/78726f18-dde3-4773-bd51-8e8712e9ebd9" />
-
+<img width="1437" height="794" alt="Preview" src="og_img.jpg" />
 
 ## Features
 
--   **Locate Me**: Automatically finds your current location and displays it on the map.
--   **Search**: Allows you to search for a specific location.
--   **Radius Control**: You can adjust the radius to find bus stops within a certain distance from your location.
--   **Bus Stop Information**: Clicking on a bus stop marker will show the bus stop code, description, and a link to check bus arrival times.
--   **Fullscreen Mode**: View the map in fullscreen for a better experience.
--   **Modern UI**: A refreshed user interface with stylish popups and zoom controls for a better user experience.
+-   **Locate Me**: Automatically detects and displays your current location on the map.
+-   **Location Search**: Search for any location in Singapore using the integrated search functionality.
+-   **Adjustable Radius**: Customize the search radius (100m to 2000m) to find bus stops within your preferred distance.
+-   **Bus Stop Details**: Click on bus stop markers to view the bus stop code, description, and a direct link to check real-time bus arrival times.
+-   **Fullscreen Mode**: Immersive fullscreen viewing for better map exploration.
+-   **Mobile Responsive**: Optimized for mobile devices with touch-friendly controls and responsive design.
+-   **Modern UI**: Clean, modern interface with custom-styled popups, zoom controls, and smooth animations.
+-   **URL Sharing**: Share specific locations via URL parameters (e.g., `?lat=1.283&lon=103.860`).
 
-## How to Use
+## Technologies
 
-1.  Open the `index.html` file in your web browser.
-2.  The application will ask for your location. Allow it to access your location to see nearby bus stops.
-3.  Use the search bar to find a specific location.
-4.  Adjust the radius slider to control the distance for finding bus stops.
-5.  Click on any bus stop icon to get more details.
+- **Frontend**: HTML5, CSS3, Vanilla JavaScript
+- **Mapping**: [Leaflet](https://leafletjs.com/) - Open-source JavaScript library for interactive maps
+- **Geocoding**: [Nominatim API](https://nominatim.org/) - Free geocoding service by OpenStreetMap
+- **Data**: Local JSON file containing Singapore bus stop information
+
+## Data Source
+
+Bus stop data is sourced from `bus_stop_list_sg.json`, which contains information about bus stops across Singapore including:
+- Bus stop codes
+- Descriptions
+- Geographic coordinates (latitude and longitude)
+
+## Installation & Usage
+
+### Running Locally
+
+1. Clone or download this repository.
+2. Open `index.html` in a modern web browser.
+3. Grant location permissions when prompted to see nearby bus stops.
+4. Use the search bar to find specific locations.
+5. Adjust the radius slider to control the search distance.
+6. Click on bus stop markers for detailed information.
+
+### URL Parameters
+
+You can share specific locations by appending coordinates to the URL:
+```
+https://yapweijun1996.github.io/Nearby-Bus-Stop-v2/?lat=1.283&lon=103.860
+```
+
+## Privacy & Permissions
+
+This application requires geolocation permissions to:
+- Automatically center the map on your current location
+- Display nearby bus stops based on your position
+
+Location data is processed locally in your browser and is not stored or transmitted to external servers.
 
 ## Business Use
 
