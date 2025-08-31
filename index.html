@@ -1,742 +1,749 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
-		<title>SG Nearby Bus Stops</title>
-		
-		<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" crossorigin="" />
-		<style>
-			:root {
-				--primary: #4f46e5;
-				--primary-hover: #3730a3;
-				--primary-active: #312e81;
-				--success: #059669;
-				--success-hover: #047857;
-				--neutral: #64748b;
-				--neutral-hover: #475569;
-				--surface: rgba(255, 255, 255, 0.95);
-				--surface-dark: rgba(30, 41, 59, 0.95);
-				--border: rgba(148, 163, 184, 0.2);
-				--text: #1e293b;
-				--text-light: #64748b;
-				--shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-				--radius: 12px;
-				--radius-lg: 16px;
-				--radius-full: 9999px;
-			}
-			
-			html, body {
-				margin: 0;
-				padding: 0;
-				height: 100%;
-				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-				overflow: hidden;
-				touch-action: pan-x pan-y pinch-zoom;
-				background: #f8fafc;
-			}
-			
-			#map {
-				height: 100%;
-				touch-action: pan-x pan-y pinch-zoom;
-			}
-			
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
+	<title>SG Nearby Bus Stops</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" crossorigin="" />
+	<style>
+		:root {
+			--primary: #4f46e5;
+			--primary-hover: #3730a3;
+			--primary-active: #312e81;
+			--success: #059669;
+			--success-hover: #047857;
+			--neutral: #64748b;
+			--neutral-hover: #475569;
+			--surface: rgba(255, 255, 255, 0.95);
+			--surface-dark: rgba(30, 41, 59, 0.95);
+			--border: rgba(148, 163, 184, 0.2);
+			--text: #1e293b;
+			--text-light: #64748b;
+			--shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+			--radius: 12px;
+			--radius-lg: 16px;
+			--radius-full: 9999px;
+		}
+
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			overflow: hidden;
+			touch-action: pan-x pan-y pinch-zoom;
+			background: #f8fafc;
+		}
+
+		#map {
+			height: 100%;
+			touch-action: pan-x pan-y pinch-zoom;
+		}
+
+		.controls {
+			position: absolute;
+			bottom: env(safe-area-inset-bottom);
+			left: 16px;
+			right: 16px;
+			width: auto;
+			max-height: 70%;
+			background: var(--surface);
+			backdrop-filter: blur(20px) saturate(180%);
+			box-shadow: var(--shadow);
+			padding: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+			z-index: 1000;
+			transform: translateY(0);
+			transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+			border-radius: var(--radius-lg);
+			box-sizing: border-box;
+			border: 1px solid var(--border);
+		}
+
+		.controls.hidden {
+			transform: translateY(calc(100% + 32px));
+			opacity: 0;
+		}
+
+		.sheet-handle {
+			width: 36px;
+			height: 4px;
+			background: var(--neutral);
+			border-radius: var(--radius-full);
+			margin: 0 auto -4px auto;
+			opacity: 0.6;
+			transition: opacity 0.2s ease;
+		}
+
+		.sheet-handle:hover {
+			opacity: 1;
+		}
+
+		.controls-row {
+			display: flex;
+			gap: 12px;
+			align-items: center;
+		}
+
+		.controls-row label {
+			font-weight: 500;
+			color: var(--text);
+			font-size: 0.875rem;
+			white-space: nowrap;
+			min-width: fit-content;
+		}
+
+		#radiusValue {
+			font-weight: 600;
+			color: var(--primary);
+		}
+
+		.controls-row input[type="range"] {
+			flex: 1;
+			height: 6px;
+			-webkit-appearance: none;
+			appearance: none;
+			background: #e2e8f0;
+			border-radius: var(--radius-full);
+			outline: none;
+			transition: background 0.2s ease;
+		}
+
+		.controls-row input[type="range"]::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			appearance: none;
+			width: 20px;
+			height: 20px;
+			background: var(--primary);
+			border-radius: 50%;
+			cursor: pointer;
+			box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+			transition: all 0.2s ease;
+		}
+
+		.controls-row input[type="range"]::-webkit-slider-thumb:hover {
+			transform: scale(1.1);
+			box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
+		}
+
+		.controls-row input[type="range"]::-moz-range-thumb {
+			width: 20px;
+			height: 20px;
+			background: var(--primary);
+			border-radius: 50%;
+			cursor: pointer;
+			border: none;
+			box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+		}
+
+		.controls-row input[type="text"] {
+			flex: 1;
+			padding: 12px 16px;
+			border: 1px solid var(--border);
+			border-radius: var(--radius);
+			font-size: 0.875rem;
+			font-weight: 400;
+			color: var(--text);
+			background: #ffffff;
+			transition: all 0.2s ease;
+			outline: none;
+		}
+
+		.controls-row input[type="text"]:focus {
+			border-color: var(--primary);
+			box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+		}
+
+		.controls-row input[type="text"]::placeholder {
+			color: var(--text-light);
+		}
+
+		.controls-row button {
+			padding: 12px 20px;
+			border: none;
+			border-radius: var(--radius);
+			color: #ffffff;
+			font-size: 0.875rem;
+			font-weight: 500;
+			cursor: pointer;
+			transition: all 0.2s ease;
+			outline: none;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			min-height: 44px;
+		}
+
+		.btn-primary {
+			background: var(--primary);
+			box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+		}
+
+		.btn-primary:hover {
+			background: var(--primary-hover);
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+		}
+
+		.btn-primary:active {
+			background: var(--primary-active);
+			transform: translateY(0);
+			box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+		}
+
+		.btn-success {
+			background: var(--success);
+			box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+		}
+
+		.btn-success:hover {
+			background: var(--success-hover);
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3);
+		}
+
+		.btn-toggle {
+			background: var(--neutral);
+			box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
+		}
+
+		.btn-toggle:hover {
+			background: var(--neutral-hover);
+			transform: translateY(-1px);
+			box-shadow: 0 4px 8px rgba(100, 116, 139, 0.3);
+		}
+
+		#showBtn {
+			position: absolute;
+			bottom: calc(16px + env(safe-area-inset-bottom));
+			right: 16px;
+			z-index: 1001;
+			width: 56px;
+			height: 56px;
+			background: var(--primary);
+			color: #ffffff;
+			border: none;
+			border-radius: var(--radius-full);
+			font-size: 16px;
+			font-weight: 600;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			box-shadow: var(--shadow);
+			transition: all 0.2s ease;
+		}
+
+		#showBtn:hover {
+			background: var(--primary-hover);
+			transform: translateY(-2px);
+			box-shadow: 0 12px 24px -4px rgba(79, 70, 229, 0.4);
+		}
+
+		#showBtn:active {
+			transform: translateY(-1px);
+		}
+
+		#showBtn::before {
+			content: '▲';
+			font-size: 18px;
+		}
+
+		.leaflet-control-attribution {
+			display: none !important;
+		}
+
+		/* Modern Popup Styles */
+		.leaflet-popup {
+			margin-bottom: 20px !important;
+		}
+
+		.leaflet-popup-content-wrapper {
+			background: var(--surface) !important;
+			border-radius: var(--radius) !important;
+			box-shadow: var(--shadow) !important;
+			border: 1px solid var(--border) !important;
+			backdrop-filter: blur(20px) saturate(180%) !important;
+			padding: 0 !important;
+			overflow: hidden !important;
+		}
+
+		.leaflet-popup-content {
+			margin: 0 !important;
+			padding: 16px !important;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+			line-height: 1.5 !important;
+			color: var(--text) !important;
+			min-width: 180px !important;
+		}
+
+		.leaflet-popup-content b {
+			display: block !important;
+			font-size: 1.125rem !important;
+			font-weight: 600 !important;
+			color: var(--primary) !important;
+			margin-bottom: 4px !important;
+		}
+
+		.leaflet-popup-content br+text {
+			color: var(--text-light) !important;
+			font-size: 0.875rem !important;
+		}
+
+		.leaflet-popup-content a {
+			display: inline-flex !important;
+			align-items: center !important;
+			gap: 6px !important;
+			background: var(--primary) !important;
+			color: #ffffff !important;
+			text-decoration: none !important;
+			padding: 8px 12px !important;
+			border-radius: 8px !important;
+			font-size: 0.8125rem !important;
+			font-weight: 500 !important;
+			margin-top: 8px !important;
+			transition: all 0.2s ease !important;
+			box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2) !important;
+		}
+
+		.leaflet-popup-content a:hover {
+			background: var(--primary-hover) !important;
+			transform: translateY(-1px) !important;
+			box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3) !important;
+		}
+
+		.leaflet-popup-content a::after {
+			content: '→' !important;
+			font-weight: 600 !important;
+		}
+
+		.leaflet-popup-tip-container {
+			filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1)) !important;
+		}
+
+		.leaflet-popup-tip {
+			background: var(--surface) !important;
+			border: 1px solid var(--border) !important;
+			border-top: none !important;
+			border-left: none !important;
+		}
+
+		.leaflet-popup-close-button {
+			position: absolute !important;
+			top: 8px !important;
+			right: 8px !important;
+			width: 24px !important;
+			height: 24px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			background: rgba(100, 116, 139, 0.1) !important;
+			border-radius: 50% !important;
+			color: var(--text-light) !important;
+			font-size: 16px !important;
+			font-weight: 400 !important;
+			text-decoration: none !important;
+			transition: all 0.2s ease !important;
+			z-index: 1001 !important;
+		}
+
+		.leaflet-popup-close-button:hover {
+			background: rgba(100, 116, 139, 0.2) !important;
+			color: var(--text) !important;
+			transform: scale(1.1) !important;
+		}
+
+		/* Modern Zoom Controls */
+		.leaflet-control-zoom {
+			border: none !important;
+			border-radius: var(--radius) !important;
+			overflow: hidden !important;
+			box-shadow: var(--shadow) !important;
+			backdrop-filter: blur(20px) saturate(180%) !important;
+		}
+
+		.leaflet-control-zoom a {
+			background: var(--surface) !important;
+			color: var(--text) !important;
+			border: 1px solid var(--border) !important;
+			border-radius: 0 !important;
+			width: 40px !important;
+			height: 40px !important;
+			display: flex !important;
+			align-items: center !important;
+			justify-content: center !important;
+			font-size: 18px !important;
+			font-weight: 500 !important;
+			text-decoration: none !important;
+			transition: all 0.2s ease !important;
+		}
+
+		.leaflet-control-zoom a:hover {
+			background: var(--primary) !important;
+			color: #ffffff !important;
+			transform: scale(1.05) !important;
+		}
+
+		.leaflet-control-zoom a:first-child {
+			border-top-left-radius: var(--radius) !important;
+			border-top-right-radius: var(--radius) !important;
+			border-bottom: none !important;
+		}
+
+		.leaflet-control-zoom a:last-child {
+			border-bottom-left-radius: var(--radius) !important;
+			border-bottom-right-radius: var(--radius) !important;
+		}
+
+		@media (min-height: 800px) {
 			.controls {
-				position: absolute;
-				bottom: env(safe-area-inset-bottom);
-				left: 16px;
-				right: 16px;
-				width: auto;
-				max-height: 70%;
-				background: var(--surface);
-				backdrop-filter: blur(20px) saturate(180%);
-				box-shadow: var(--shadow);
-				padding: 20px;
-				display: flex;
-				flex-direction: column;
-				gap: 16px;
-				z-index: 1000;
-				transform: translateY(0);
-				transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-				border-radius: var(--radius-lg);
-				box-sizing: border-box;
-				border: 1px solid var(--border);
+				max-height: 35%;
 			}
-			
+		}
+
+		@media (orientation: landscape) {
+			.controls {
+				max-height: 50%;
+			}
+		}
+
+		@media (max-width: 768px) {
+			.controls {
+				left: 12px;
+				right: 12px;
+				padding: 16px;
+				gap: 12px;
+			}
+
+			.controls-row {
+				gap: 8px;
+			}
+
+			.controls-row button {
+				padding: 10px 16px;
+				font-size: 0.8125rem;
+				min-height: 40px;
+			}
+
+			.controls-row input[type="text"] {
+				padding: 6px 10px;
+				font-size: 0.75rem;
+			}
+
+			.controls-row input[type="range"] {
+				height: 4px;
+			}
+
+			.controls-row input[type="range"]::-webkit-slider-thumb {
+				width: 14px;
+				height: 14px;
+			}
+
+			.controls-row input[type="range"]::-moz-range-thumb {
+				width: 14px;
+				height: 14px;
+			}
+		}
+
+		@media (max-width: 480px) {
+			.controls {
+				left: 8px;
+				right: 8px;
+				padding: 12px;
+				gap: 8px;
+				border-radius: var(--radius);
+			}
+
+			.controls-row {
+				flex-wrap: wrap;
+				gap: 6px;
+			}
+
+			.controls-row>input[type="text"] {
+				flex: 1 1 100%;
+				margin-bottom: 4px;
+			}
+
+			.controls-row>button {
+				flex: 1;
+				min-width: 0;
+				padding: 8px 12px;
+				font-size: 0.75rem;
+				min-height: 36px;
+			}
+
+			.sheet-handle {
+				width: 32px;
+				height: 3px;
+				margin-bottom: 0;
+			}
+
+			#showBtn {
+				width: 48px;
+				height: 48px;
+				font-size: 14px;
+				bottom: calc(12px + env(safe-area-inset-bottom));
+				right: 12px;
+			}
+
+			#showBtn::before {
+				font-size: 16px !important;
+			}
+
+			/* Larger zoom controls for mobile */
+			.leaflet-control-zoom a {
+				width: 48px !important;
+				height: 48px !important;
+				font-size: 20px !important;
+			}
+		}
+
+		/* Ultra-small screens (e.g., 333x155) */
+		@media (max-width: 350px) {
+			.controls {
+				left: 0;
+				right: 0;
+				bottom: 0;
+				max-height: 90%;
+				padding: 12px;
+				gap: 8px;
+				border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+				z-index: 1000;
+				overflow-y: auto;
+			}
+
 			.controls.hidden {
 				transform: translateY(calc(100% + 32px));
-				opacity: 0;
 			}
-			
+
+			.controls-row {}
+
+			.controls-row:last-child {
+				flex-direction: row;
+				flex-wrap: wrap;
+				justify-content: space-between;
+			}
+
+			.controls-row:last-child button {
+				flex: 1 1 auto;
+				min-width: 70px;
+				margin: 2px;
+			}
+
+			.controls-row label {
+				font-size: 0.8125rem;
+				margin-bottom: 4px;
+			}
+
+			.controls-row input[type="text"] {
+				padding: 10px 14px;
+				font-size: 0.8125rem;
+			}
+
+			.controls-row button {
+				padding: 6px 10px;
+				font-size: 0.75rem;
+				min-height: 36px;
+				gap: 4px;
+			}
+
+			.controls-row button svg {
+				width: 16px;
+				height: 16px;
+			}
+
 			.sheet-handle {
 				width: 36px;
 				height: 4px;
-				background: var(--neutral);
-				border-radius: var(--radius-full);
-				margin: 0 auto -4px auto;
-				opacity: 0.6;
-				transition: opacity 0.2s ease;
+				margin-bottom: 4px;
 			}
-			
-			.sheet-handle:hover {
-				opacity: 1;
-			}
-			
-			.controls-row {
-				display: flex;
-				gap: 12px;
-				align-items: center;
-			}
-			
-			.controls-row label {
-				font-weight: 500;
-				color: var(--text);
-				font-size: 0.875rem;
-				white-space: nowrap;
-				min-width: fit-content;
-			}
-			
-			#radiusValue {
-				font-weight: 600;
-				color: var(--primary);
-			}
-			
-			.controls-row input[type="range"] {
-				flex: 1;
-				height: 6px;
-				-webkit-appearance: none;
-				appearance: none;
-				background: #e2e8f0;
-				border-radius: var(--radius-full);
-				outline: none;
-				transition: background 0.2s ease;
-			}
-			
-			.controls-row input[type="range"]::-webkit-slider-thumb {
-				-webkit-appearance: none;
-				appearance: none;
-				width: 20px;
-				height: 20px;
-				background: var(--primary);
-				border-radius: 50%;
-				cursor: pointer;
-				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
-				transition: all 0.2s ease;
-			}
-			
-			.controls-row input[type="range"]::-webkit-slider-thumb:hover {
-				transform: scale(1.1);
-				box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
-			}
-			
-			.controls-row input[type="range"]::-moz-range-thumb {
-				width: 20px;
-				height: 20px;
-				background: var(--primary);
-				border-radius: 50%;
-				cursor: pointer;
-				border: none;
-				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
-			}
-			
-			.controls-row input[type="text"] {
-				flex: 1;
-				padding: 12px 16px;
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				font-size: 0.875rem;
-				font-weight: 400;
-				color: var(--text);
-				background: #ffffff;
-				transition: all 0.2s ease;
-				outline: none;
-			}
-			
-			.controls-row input[type="text"]:focus {
-				border-color: var(--primary);
-				box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-			}
-			
-			.controls-row input[type="text"]::placeholder {
-				color: var(--text-light);
-			}
-			
-			.controls-row button {
-				padding: 12px 20px;
-				border: none;
-				border-radius: var(--radius);
-				color: #ffffff;
-				font-size: 0.875rem;
-				font-weight: 500;
-				cursor: pointer;
-				transition: all 0.2s ease;
-				outline: none;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 6px;
-				min-height: 44px;
-			}
-			
-			.btn-primary {
-				background: var(--primary);
-				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
-			}
-			
-			.btn-primary:hover {
-				background: var(--primary-hover);
-				transform: translateY(-1px);
-				box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
-			}
-			
-			.btn-primary:active {
-				background: var(--primary-active);
-				transform: translateY(0);
-				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
-			}
-			
-			.btn-success {
-				background: var(--success);
-				box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
-			}
-			
-			.btn-success:hover {
-				background: var(--success-hover);
-				transform: translateY(-1px);
-				box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3);
-			}
-			
-			.btn-toggle {
-				background: var(--neutral);
-				box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
-			}
-			
-			.btn-toggle:hover {
-				background: var(--neutral-hover);
-				transform: translateY(-1px);
-				box-shadow: 0 4px 8px rgba(100, 116, 139, 0.3);
-			}
-			
+
 			#showBtn {
-				position: absolute;
-				bottom: calc(16px + env(safe-area-inset-bottom));
-				right: 16px;
+				width: 48px;
+				height: 48px;
+				font-size: 14px;
+				bottom: calc(12px + env(safe-area-inset-bottom));
+				right: 12px;
 				z-index: 1001;
-				width: 56px;
-				height: 56px;
-				background: var(--primary);
-				color: #ffffff;
-				border: none;
-				border-radius: var(--radius-full);
-				font-size: 16px;
-				font-weight: 600;
-				display: none;
-				align-items: center;
-				justify-content: center;
-				cursor: pointer;
-				box-shadow: var(--shadow);
-				transition: all 0.2s ease;
 			}
-			
-			#showBtn:hover {
-				background: var(--primary-hover);
-				transform: translateY(-2px);
-				box-shadow: 0 12px 24px -4px rgba(79, 70, 229, 0.4);
-			}
-			
-			#showBtn:active {
-				transform: translateY(-1px);
-			}
-			
+
 			#showBtn::before {
-				content: '▲';
-				font-size: 18px;
-			}
-			
-			.leaflet-control-attribution {
-				display: none !important;
-			}
-			
-			/* Modern Popup Styles */
-			.leaflet-popup {
-				margin-bottom: 20px !important;
-			}
-			
-			.leaflet-popup-content-wrapper {
-				background: var(--surface) !important;
-				border-radius: var(--radius) !important;
-				box-shadow: var(--shadow) !important;
-				border: 1px solid var(--border) !important;
-				backdrop-filter: blur(20px) saturate(180%) !important;
-				padding: 0 !important;
-				overflow: hidden !important;
-			}
-			
-			.leaflet-popup-content {
-				margin: 0 !important;
-				padding: 16px !important;
-				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
-				line-height: 1.5 !important;
-				color: var(--text) !important;
-				min-width: 180px !important;
-			}
-			
-			.leaflet-popup-content b {
-				display: block !important;
-				font-size: 1.125rem !important;
-				font-weight: 600 !important;
-				color: var(--primary) !important;
-				margin-bottom: 4px !important;
-			}
-			
-			.leaflet-popup-content br + text {
-				color: var(--text-light) !important;
-				font-size: 0.875rem !important;
-			}
-			
-			.leaflet-popup-content a {
-				display: inline-flex !important;
-				align-items: center !important;
-				gap: 6px !important;
-				background: var(--primary) !important;
-				color: #ffffff !important;
-				text-decoration: none !important;
-				padding: 8px 12px !important;
-				border-radius: 8px !important;
-				font-size: 0.8125rem !important;
-				font-weight: 500 !important;
-				margin-top: 8px !important;
-				transition: all 0.2s ease !important;
-				box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2) !important;
-			}
-			
-			.leaflet-popup-content a:hover {
-				background: var(--primary-hover) !important;
-				transform: translateY(-1px) !important;
-				box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3) !important;
-			}
-			
-			.leaflet-popup-content a::after {
-				content: '→' !important;
-				font-weight: 600 !important;
-			}
-			
-			.leaflet-popup-tip-container {
-				filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1)) !important;
-			}
-			
-			.leaflet-popup-tip {
-				background: var(--surface) !important;
-				border: 1px solid var(--border) !important;
-				border-top: none !important;
-				border-left: none !important;
-			}
-			
-			.leaflet-popup-close-button {
-				position: absolute !important;
-				top: 8px !important;
-				right: 8px !important;
-				width: 24px !important;
-				height: 24px !important;
-				display: flex !important;
-				align-items: center !important;
-				justify-content: center !important;
-				background: rgba(100, 116, 139, 0.1) !important;
-				border-radius: 50% !important;
-				color: var(--text-light) !important;
 				font-size: 16px !important;
-				font-weight: 400 !important;
-				text-decoration: none !important;
-				transition: all 0.2s ease !important;
-				z-index: 1001 !important;
 			}
-			
-			.leaflet-popup-close-button:hover {
-				background: rgba(100, 116, 139, 0.2) !important;
-				color: var(--text) !important;
-				transform: scale(1.1) !important;
-			}
-			
-			/* Modern Zoom Controls */
-			.leaflet-control-zoom {
-				border: none !important;
-				border-radius: var(--radius) !important;
-				overflow: hidden !important;
-				box-shadow: var(--shadow) !important;
-				backdrop-filter: blur(20px) saturate(180%) !important;
-			}
-			
+
+			/* Smaller zoom controls for ultra-small screens */
 			.leaflet-control-zoom a {
-				background: var(--surface) !important;
-				color: var(--text) !important;
-				border: 1px solid var(--border) !important;
-				border-radius: 0 !important;
 				width: 40px !important;
 				height: 40px !important;
-				display: flex !important;
-				align-items: center !important;
-				justify-content: center !important;
 				font-size: 18px !important;
-				font-weight: 500 !important;
-				text-decoration: none !important;
-				transition: all 0.2s ease !important;
-			}
-			
-			.leaflet-control-zoom a:hover {
-				background: var(--primary) !important;
-				color: #ffffff !important;
-				transform: scale(1.05) !important;
-			}
-			
-			.leaflet-control-zoom a:first-child {
-				border-top-left-radius: var(--radius) !important;
-				border-top-right-radius: var(--radius) !important;
-				border-bottom: none !important;
-			}
-			
-			.leaflet-control-zoom a:last-child {
-				border-bottom-left-radius: var(--radius) !important;
-				border-bottom-right-radius: var(--radius) !important;
-			}
-			
-			@media (min-height: 800px) {
-				.controls {
-					max-height: 35%;
-				}
-			}
-			
-			@media (orientation: landscape) {
-				.controls {
-					max-height: 50%;
-				}
-			}
-			
-			@media (max-width: 768px) {
-				.controls {
-					left: 12px;
-					right: 12px;
-					padding: 16px;
-					gap: 12px;
-				}
-				
-				.controls-row {
-					gap: 8px;
-				}
-				
-				.controls-row button {
-					padding: 10px 16px;
-					font-size: 0.8125rem;
-					min-height: 40px;
-				}
-				
-				.controls-row input[type="text"] {
-					padding: 6px 10px;
-					font-size: 0.75rem;
-				}
-
-				.controls-row input[type="range"] {
-					height: 4px;
-				}
-
-				.controls-row input[type="range"]::-webkit-slider-thumb {
-					width: 14px;
-					height: 14px;
-				}
-
-				.controls-row input[type="range"]::-moz-range-thumb {
-					width: 14px;
-					height: 14px;
-				}
-			}
-			
-			@media (max-width: 480px) {
-				.controls {
-					left: 8px;
-					right: 8px;
-					padding: 12px;
-					gap: 8px;
-					border-radius: var(--radius);
-				}
-
-				.controls-row {
-					flex-wrap: wrap;
-					gap: 6px;
-				}
-
-				.controls-row > input[type="text"] {
-					flex: 1 1 100%;
-					margin-bottom: 4px;
-				}
-
-				.controls-row > button {
-					flex: 1;
-					min-width: 0;
-					padding: 8px 12px;
-					font-size: 0.75rem;
-					min-height: 36px;
-				}
-
-				.sheet-handle {
-					width: 32px;
-					height: 3px;
-					margin-bottom: 0;
-				}
-
-				#showBtn {
-					width: 48px;
-					height: 48px;
-					font-size: 14px;
-					bottom: calc(12px + env(safe-area-inset-bottom));
-					right: 12px;
-				}
-
-				#showBtn::before {
-					font-size: 16px !important;
-				}
-
-				/* Larger zoom controls for mobile */
-				.leaflet-control-zoom a {
-					width: 48px !important;
-					height: 48px !important;
-					font-size: 20px !important;
-				}
 			}
 
-			/* Ultra-small screens (e.g., 333x155) */
-			@media (max-width: 350px) {
-				.controls {
-					left: 0;
-					right: 0;
-					bottom: 0;
-					max-height: 90%;
-					padding: 12px;
-					gap: 8px;
-					border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-					z-index: 1000;
-					overflow-y: auto;
-				}
-
-				.controls.hidden {
-					transform: translateY(calc(100% + 32px));
-				}
-
-				.controls-row {
-					
-				}
-
-				.controls-row:last-child {
-					flex-direction: row;
-					flex-wrap: wrap;
-					justify-content: space-between;
-				}
-
-				.controls-row:last-child button {
-					flex: 1 1 auto;
-					min-width: 70px;
-					margin: 2px;
-				}
-
-				.controls-row label {
-					font-size: 0.8125rem;
-					margin-bottom: 4px;
-				}
-
-				.controls-row input[type="text"] {
-					padding: 10px 14px;
-					font-size: 0.8125rem;
-				}
-
-				.controls-row button {
-					padding: 6px 10px;
-					font-size: 0.75rem;
-					min-height: 36px;
-					gap: 4px;
-				}
-
-				.controls-row button svg {
-					width: 16px;
-					height: 16px;
-				}
-
-				.sheet-handle {
-					width: 36px;
-					height: 4px;
-					margin-bottom: 4px;
-				}
-
-				#showBtn {
-					width: 48px;
-					height: 48px;
-					font-size: 14px;
-					bottom: calc(12px + env(safe-area-inset-bottom));
-					right: 12px;
-					z-index: 1001;
-				}
-
-				#showBtn::before {
-					font-size: 16px !important;
-				}
-
-				/* Smaller zoom controls for ultra-small screens */
-				.leaflet-control-zoom a {
-					width: 40px !important;
-					height: 40px !important;
-					font-size: 18px !important;
-				}
-
-				/* Compact popups for small screens */
-				.leaflet-popup-content {
-					padding: 14px !important;
-					min-width: 160px !important;
-				}
-
-				.leaflet-popup-content b {
-					font-size: 1.0625rem !important;
-				}
-
-				.leaflet-popup-content a {
-					padding: 8px 12px !important;
-					font-size: 0.8125rem !important;
-				}
+			/* Compact popups for small screens */
+			.leaflet-popup-content {
+				padding: 14px !important;
+				min-width: 160px !important;
 			}
-		</style>
-	</head>
-	<body>
-		<button id="showBtn" aria-label="Show Controls"></button>
-		
-		<div class="controls" id="controls">
-			<div class="sheet-handle"></div>
-			
-			<div class="controls-row">
-				<label>Radius: <span id="radiusValue">500</span>m</label>
-				<input type="range" id="radius" min="100" max="2000" value="500" step="100" style="width: 65%;" />
-			</div>
-			
-			<div class="controls-row">
-				<input type="text" id="searchInput" placeholder="Search for a location..." aria-label="Search location" />
-				<button id="searchBtn" class="btn-primary">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M21 21L16.514 16.506M19 10.5C19 15.194 15.194 19 10.5 19S2 15.194 2 10.5 5.806 2 10.5 2 19 5.806 19 10.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					Search
-				</button>
-			</div>
-			
-			<div class="controls-row">
-				<button id="locateBtn" class="btn-primary">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-					</svg>
-					Locate Me
-				</button>
-				<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					Hide
-				</button>
-				<button id="fullscreenBtn" class="btn-success">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					Fullscreen
-				</button>
-			</div>
+
+			.leaflet-popup-content b {
+				font-size: 1.0625rem !important;
+			}
+
+			.leaflet-popup-content a {
+				padding: 8px 12px !important;
+				font-size: 0.8125rem !important;
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<button id="showBtn" aria-label="Show Controls"></button>
+
+	<div class="controls" id="controls">
+		<div class="sheet-handle"></div>
+
+		<div class="controls-row">
+			<label>Radius: <span id="radiusValue">500</span>m</label>
+			<input type="range" id="radius" min="100" max="2000" value="500" step="100" style="width: 65%;" />
 		</div>
-		
-		<div id="map"></div>
-		
-		<script src="https://unpkg.com/leaflet/dist/leaflet.js" crossorigin=""></script>
-		<script>
-			const DEFAULT = { lat: 1.283, lon: 103.860 };
-			const map = L.map('map', {
-				zoomControl: false,
-				attributionControl: false,
-				doubleClickZoom: true,
-				touchZoom: true,
-				tap: false
-			}).setView([DEFAULT.lat, DEFAULT.lon], 15);
-			L.control.zoom({ position: 'topright' }).addTo(map);
-			L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-				attribution: '© OpenStreetMap contributors',
-				crossOrigin: true
-			}).addTo(map);
-			
-			const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
-			const stopLayer = L.layerGroup().addTo(map);
-			let userMarker = null, userPos = null, stops = [];
-			
-			const ctrls = document.getElementById('controls');
-			const showBtn = document.getElementById('showBtn');
-			const radInput = document.getElementById('radius');
-			const radValue = document.getElementById('radiusValue');
-			const searchIn = document.getElementById('searchInput');
-			
-			radInput.oninput = () => {
-				radValue.textContent = radInput.value;
-				circle.setRadius(+radInput.value);
-				renderStops();
-			};
-			
-			document.getElementById('searchBtn').onclick = searchLocation;
-			document.getElementById('locateBtn').onclick = locateMe;
-			document.getElementById('toggleBtn').onclick = () => {
-				ctrls.classList.toggle('hidden');
-				showBtn.style.display = ctrls.classList.contains('hidden') ? 'flex' : 'none';
-				map.invalidateSize();
-			};
-			showBtn.onclick = () => document.getElementById('toggleBtn').click();
-			document.getElementById('fullscreenBtn').onclick = () => {
-				document.fullscreenElement
+
+		<div class="controls-row">
+			<input type="text" id="searchInput" placeholder="Search for a location..." aria-label="Search location" />
+			<button id="searchBtn" class="btn-primary">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M21 21L16.514 16.506M19 10.5C19 15.194 15.194 19 10.5 19S2 15.194 2 10.5 5.806 2 10.5 2 19 5.806 19 10.5Z"
+						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+				Search
+			</button>
+		</div>
+
+		<div class="controls-row">
+			<button id="locateBtn" class="btn-primary">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"
+						stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+				</svg>
+				Locate Me
+			</button>
+			<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+						stroke-linejoin="round" />
+				</svg>
+				Hide
+			</button>
+			<button id="fullscreenBtn" class="btn-success">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8"
+						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+				Fullscreen
+			</button>
+		</div>
+	</div>
+
+	<div id="map"></div>
+
+	<script src="https://unpkg.com/leaflet/dist/leaflet.js" crossorigin=""></script>
+	<script>
+		const DEFAULT = { lat: 1.283, lon: 103.860 };
+		const map = L.map('map', {
+			zoomControl: false,
+			attributionControl: false,
+			doubleClickZoom: true,
+			touchZoom: true,
+			tap: false
+		}).setView([DEFAULT.lat, DEFAULT.lon], 15);
+		L.control.zoom({ position: 'topright' }).addTo(map);
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '© OpenStreetMap contributors',
+			crossOrigin: true
+		}).addTo(map);
+
+		const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
+		const stopLayer = L.layerGroup().addTo(map);
+		let userMarker = null, userPos = null, stops = [];
+
+		const ctrls = document.getElementById('controls');
+		const showBtn = document.getElementById('showBtn');
+		const radInput = document.getElementById('radius');
+		const radValue = document.getElementById('radiusValue');
+		const searchIn = document.getElementById('searchInput');
+
+		radInput.oninput = () => {
+			radValue.textContent = radInput.value;
+			circle.setRadius(+radInput.value);
+			renderStops();
+		};
+
+		document.getElementById('searchBtn').onclick = searchLocation;
+		document.getElementById('locateBtn').onclick = locateMe;
+		document.getElementById('toggleBtn').onclick = () => {
+			ctrls.classList.toggle('hidden');
+			showBtn.style.display = ctrls.classList.contains('hidden') ? 'flex' : 'none';
+			map.invalidateSize();
+		};
+		showBtn.onclick = () => document.getElementById('toggleBtn').click();
+		document.getElementById('fullscreenBtn').onclick = () => {
+			document.fullscreenElement
 				? document.exitFullscreen()
 				: document.documentElement.requestFullscreen();
-			};
-			
-			function locateMe() {
-				navigator.geolocation.getCurrentPosition(
+		};
+
+		function locateMe() {
+			navigator.geolocation.getCurrentPosition(
 				pos => setUser({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
 				() => alert('Unable to retrieve your location')
-				);
-			}
-			
-			function searchLocation() {
-				const q = searchIn.value.trim();
-				if (!q) return;
-				fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`, {
-					headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
-				})
+			);
+		}
+
+		function searchLocation() {
+			const q = searchIn.value.trim();
+			if (!q) return;
+			fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`, {
+				headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
+			})
 				.then(r => r.json())
 				.then(data => {
 					if (!data.length) return alert('Location not found');
 					setUser({ lat: +data[0].lat, lon: +data[0].lon });
 				})
 				.catch(() => alert('Search failed'));
-			}
-			
-			function setUser(pos) {
-				userPos = pos;
-				if (!userMarker) {
-					userMarker = L.marker([pos.lat, pos.lon])
+		}
+
+		function setUser(pos) {
+			userPos = pos;
+			if (!userMarker) {
+				userMarker = L.marker([pos.lat, pos.lon])
 					.addTo(map)
 					.bindPopup('You are here')
 					.openPopup();
-				} else {
-					userMarker.setLatLng([pos.lat, pos.lon]);
-				}
-				circle.setLatLng([pos.lat, pos.lon]);
-				map.setView([pos.lat, pos.lon], map.getZoom());
-				renderStops();
+			} else {
+				userMarker.setLatLng([pos.lat, pos.lon]);
 			}
-			
-			function loadStops() {
-				fetch('bus_stop_list_sg.json')
+			circle.setLatLng([pos.lat, pos.lon]);
+			map.setView([pos.lat, pos.lon], map.getZoom());
+			renderStops();
+		}
+
+		function loadStops() {
+			fetch('bus_stop_list_sg.json')
 				.then(r => r.text())
 				.then(txt => {
 					const clean = txt.replace(/^[ \t]*\/\/.*(?:\r?\n)?/gm, '');
 					stops = JSON.parse(clean);
 					const p = new URLSearchParams(window.location.search);
 					const lat = parseFloat(p.get('lat')),
-					lon = parseFloat(p.get('lon'));
+						lon = parseFloat(p.get('lon'));
 					if (!isNaN(lat) && !isNaN(lon)) {
 						setUser({ lat, lon });
 					} else {
@@ -744,29 +751,30 @@
 					}
 				})
 				.catch(() => alert('Failed to load bus stops'));
-			}
-			
-			function renderStops() {
-				if (!userPos) return;
-				stopLayer.clearLayers();
-				stops.forEach(s => {
-					if (map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <= +radInput.value) {
-						L.marker([s.Latitude, s.Longitude])
+		}
+
+		function renderStops() {
+			if (!userPos) return;
+			stopLayer.clearLayers();
+			stops.forEach(s => {
+				if (map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <= +radInput.value) {
+					L.marker([s.Latitude, s.Longitude])
 						.bindPopup(
-						`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`
+							`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`
 						)
 						.addTo(stopLayer);
-					}
-				});
-			}
-			
-			loadStops();
-			searchIn.addEventListener('keydown', function (e) {
-				if (e.key === 'Enter') {
-					e.preventDefault();
-					searchLocation();
 				}
 			});
-		</script>
-	</body>
+		}
+
+		loadStops();
+		searchIn.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				searchLocation();
+			}
+		});
+	</script>
+</body>
+
 </html>
