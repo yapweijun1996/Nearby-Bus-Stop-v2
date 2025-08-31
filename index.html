@@ -671,7 +671,37 @@
 
 		const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
 		const stopLayer = L.layerGroup().addTo(map);
-		let userMarker = null, userPos = null, stops = [];
+		let userMarker = null, userPos = null, busStopsData = [];
+
+		function fetchBusStops(lat, lon, radius, callback) {
+			var query = '[out:json][timeout:25];\n' +
+			'(\n' +
+			'  node["highway"="bus_stop"](around:' + radius + ', ' + lat + ', ' + lon + ');\n' +
+			'  node["public_transport"="platform"](around:' + radius + ', ' + lat + ', ' + lon + ');\n' +
+			');\n' +
+			'out body;\n' +
+			'>;\n' +
+			'out skel qt;';
+			var url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+			fetch(url)
+			.then(function(response) { return response.json(); })
+			.then(function(data) {
+				if (data.elements.length === 0) {
+					alert('No bus stops found nearby.');
+				}
+				busStopsData = data.elements;
+				if (typeof callback === "function") {
+					callback();
+				}
+			})
+			.catch(function(error) {
+				console.error('Error fetching bus stops:', error);
+				alert('Unable to fetch bus stops.');
+				if (typeof callback === "function") {
+					callback();
+				}
+			});
+		}
 
 		const ctrls = document.getElementById('controls');
 		const showBtn = document.getElementById('showBtn');
@@ -683,6 +713,7 @@
 			radValue.textContent = radInput.value;
 			circle.setRadius(+radInput.value);
 			renderStops();
+			if (userPos) fetchBusStops(userPos.lat, userPos.lon, +radInput.value, renderStops);
 		};
 
 		document.getElementById('searchBtn').onclick = searchLocation;
@@ -733,34 +764,28 @@
 			circle.setLatLng([pos.lat, pos.lon]);
 			map.setView([pos.lat, pos.lon], map.getZoom());
 			renderStops();
+			fetchBusStops(pos.lat, pos.lon, +radInput.value, renderStops);
 		}
 
 		function loadStops() {
-			fetch('bus_stop_list_sg.json')
-				.then(r => r.text())
-				.then(txt => {
-					const clean = txt.replace(/^[ \t]*\/\/.*(?:\r?\n)?/gm, '');
-					stops = JSON.parse(clean);
-					const p = new URLSearchParams(window.location.search);
-					const lat = parseFloat(p.get('lat')),
-						lon = parseFloat(p.get('lon'));
-					if (!isNaN(lat) && !isNaN(lon)) {
-						setUser({ lat, lon });
-					} else {
-						locateMe();
-					}
-				})
-				.catch(() => alert('Failed to load bus stops'));
+			const p = new URLSearchParams(window.location.search);
+			const lat = parseFloat(p.get('lat')),
+				lon = parseFloat(p.get('lon'));
+			if (!isNaN(lat) && !isNaN(lon)) {
+				setUser({ lat, lon });
+			} else {
+				locateMe();
+			}
 		}
 
 		function renderStops() {
 			if (!userPos) return;
 			stopLayer.clearLayers();
-			stops.forEach(s => {
-				if (map.distance([s.Latitude, s.Longitude], [userPos.lat, userPos.lon]) <= +radInput.value) {
-					L.marker([s.Latitude, s.Longitude])
+			busStopsData.forEach(s => {
+				if (map.distance([s.lat, s.lon], [userPos.lat, userPos.lon]) <= +radInput.value) {
+					L.marker([s.lat, s.lon])
 						.bindPopup(
-							`<b>${s.BusStopCode}</b><br>${s.Description}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.BusStopCode}" target="_blank">Times</a>`
+							`<b>${s.tags?.ref || s.id}</b><br>${s.tags?.name || 'Bus Stop'}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.tags?.ref || s.id}" target="_blank">Times</a>`
 						)
 						.addTo(stopLayer);
 				}
