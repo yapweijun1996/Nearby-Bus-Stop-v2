@@ -430,8 +430,22 @@
 				}
 				
 				.controls-row input[type="text"] {
-					padding: 10px 14px;
-					font-size: 0.8125rem;
+					padding: 6px 10px;
+					font-size: 0.75rem;
+				}
+
+				.controls-row input[type="range"] {
+					height: 4px;
+				}
+
+				.controls-row input[type="range"]::-webkit-slider-thumb {
+					width: 14px;
+					height: 14px;
+				}
+
+				.controls-row input[type="range"]::-moz-range-thumb {
+					width: 14px;
+					height: 14px;
 				}
 			}
 			
@@ -443,17 +457,17 @@
 					gap: 8px;
 					border-radius: var(--radius);
 				}
-				
+
 				.controls-row {
 					flex-wrap: wrap;
 					gap: 6px;
 				}
-				
+
 				.controls-row > input[type="text"] {
 					flex: 1 1 100%;
 					margin-bottom: 4px;
 				}
-				
+
 				.controls-row > button {
 					flex: 1;
 					min-width: 0;
@@ -461,13 +475,13 @@
 					font-size: 0.75rem;
 					min-height: 36px;
 				}
-				
+
 				.sheet-handle {
 					width: 32px;
 					height: 3px;
 					margin-bottom: 0;
 				}
-				
+
 				#showBtn {
 					width: 48px;
 					height: 48px;
@@ -475,16 +489,114 @@
 					bottom: calc(12px + env(safe-area-inset-bottom));
 					right: 12px;
 				}
-				
+
 				#showBtn::before {
 					font-size: 16px !important;
 				}
-				
+
 				/* Larger zoom controls for mobile */
 				.leaflet-control-zoom a {
 					width: 48px !important;
 					height: 48px !important;
 					font-size: 20px !important;
+				}
+			}
+
+			/* Ultra-small screens (e.g., 333x155) */
+			@media (max-width: 350px) {
+				.controls {
+					left: 0;
+					right: 0;
+					bottom: 0;
+					max-height: 90%;
+					padding: 12px;
+					gap: 8px;
+					border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+					z-index: 1000;
+					overflow-y: auto;
+				}
+
+				.controls.hidden {
+					transform: translateY(calc(100% + 32px));
+				}
+
+				.controls-row {
+					
+				}
+
+				.controls-row:last-child {
+					flex-direction: row;
+					flex-wrap: wrap;
+					justify-content: space-between;
+				}
+
+				.controls-row:last-child button {
+					flex: 1 1 auto;
+					min-width: 70px;
+					margin: 2px;
+				}
+
+				.controls-row label {
+					font-size: 0.8125rem;
+					margin-bottom: 4px;
+				}
+
+				.controls-row input[type="text"] {
+					padding: 10px 14px;
+					font-size: 0.8125rem;
+				}
+
+				.controls-row button {
+					padding: 6px 10px;
+					font-size: 0.75rem;
+					min-height: 36px;
+					gap: 4px;
+				}
+
+				.controls-row button svg {
+					width: 16px;
+					height: 16px;
+				}
+
+				.sheet-handle {
+					width: 36px;
+					height: 4px;
+					margin-bottom: 4px;
+				}
+
+				#showBtn {
+					width: 48px;
+					height: 48px;
+					font-size: 14px;
+					bottom: calc(12px + env(safe-area-inset-bottom));
+					right: 12px;
+					z-index: 1001;
+				}
+
+				#showBtn::before {
+					font-size: 16px !important;
+				}
+
+				/* Smaller zoom controls for ultra-small screens */
+				.leaflet-control-zoom a {
+					width: 40px !important;
+					height: 40px !important;
+					font-size: 18px !important;
+				}
+
+				/* Compact popups for small screens */
+				.leaflet-popup-content {
+					padding: 14px !important;
+					min-width: 160px !important;
+				}
+
+				.leaflet-popup-content b {
+					font-size: 1.0625rem !important;
+				}
+
+				.leaflet-popup-content a {
+					padding: 8px 12px !important;
+					font-size: 0.8125rem !important;
 				}
 			}
 		</style>
@@ -497,7 +609,7 @@
 			
 			<div class="controls-row">
 				<label>Radius: <span id="radiusValue">500</span>m</label>
-				<input type="range" id="radius" min="100" max="2000" value="500" step="100" />
+				<input type="range" id="radius" min="100" max="2000" value="500" step="100" style="width: 65%;" />
 			</div>
 			
 			<div class="controls-row">
