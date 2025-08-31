@@ -35,6 +35,42 @@ Bus stop data is sourced from `bus_stop_list_sg.json`, which contains informatio
 - Descriptions
 - Geographic coordinates (latitude and longitude)
 
+## Technical Implementation
+
+### Bus Stop Data Loading
+
+The application loads bus stop data through the following process:
+
+1. **Data Fetching**: Fetches `bus_stop_list_sg.json` file using the Fetch API
+2. **Data Cleaning**: Removes JavaScript-style comments (lines starting with `//`) from the JSON file
+3. **Data Parsing**: Parses the cleaned JSON data into a JavaScript array of bus stop objects
+4. **Data Storage**: Stores the parsed data in a global `stops` array for efficient access
+
+### Location Processing Logic
+
+**User Location Detection:**
+- Primary method: Browser Geolocation API (`navigator.geolocation.getCurrentPosition()`)
+- Fallback method: URL parameters (`?lat=1.283&lon=103.860`)
+- Default location: Singapore center coordinates (1.283, 103.860)
+
+**Bus Stop Filtering:**
+- Uses Leaflet's `map.distance()` method for accurate distance calculations
+- Filters bus stops within the user-specified radius (100m to 2000m)
+- Distance calculation uses the Haversine formula for geographic accuracy
+
+**Marker Rendering:**
+- Creates Leaflet markers for each qualifying bus stop
+- Binds popups containing bus stop code, description, and arrival time link
+- Links to external bus arrival time service using bus stop codes
+
+### Key Functions
+
+- `loadStops()`: Handles data loading and initial processing
+- `setUser(pos)`: Sets user location and triggers stop rendering
+- `renderStops()`: Filters and displays bus stops within radius
+- `locateMe()`: Gets user location via geolocation API
+- `searchLocation()`: Searches for locations using Nominatim geocoding service
+
 ## Installation & Usage
 
 ### Running Locally
