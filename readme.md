@@ -12,64 +12,137 @@ https://yapweijun1996.github.io/Nearby-Bus-Stop-v2/
 
 ## Features
 
--   **Locate Me**: Automatically detects and displays your current location on the map.
--   **Location Search**: Search for any location in Singapore using the integrated search functionality.
--   **Adjustable Radius**: Customize the search radius (100m to 2000m) to find bus stops within your preferred distance.
--   **Bus Stop Details**: Click on bus stop markers to view the bus stop code, description, and a direct link to check real-time bus arrival times.
--   **Fullscreen Mode**: Immersive fullscreen viewing for better map exploration.
--   **Mobile Responsive**: Optimized for mobile devices with touch-friendly controls and responsive design.
--   **Modern UI**: Clean, modern interface with custom-styled popups, zoom controls, and smooth animations.
+-   **Locate Me**: Automatically detects and displays your current location on the map with high accuracy geolocation.
+-   **Location Search**: Advanced search functionality with fuzzy matching and intelligent result ranking using Overpass API.
+-   **Adjustable Radius**: Interactive radius slider (100m to 2000m) with real-time visual feedback and smooth animations.
+-   **Bus Stop Details**: Click on bus stop markers to view detailed information including bus stop code, name, distance, and direct links to real-time arrival times.
+-   **Fullscreen Mode**: Immersive fullscreen viewing experience for enhanced map exploration.
+-   **Mobile Responsive**: Fully optimized for mobile devices with touch-friendly controls, responsive design, and safe area support.
+-   **Modern UI**: Clean, modern interface with custom-styled popups, zoom controls, smooth animations, and glassmorphism effects.
 -   **URL Sharing**: Share specific locations via URL parameters (e.g., `?lat=1.283&lon=103.860`).
+-   **Performance Optimized**: Intelligent caching system with memory and localStorage for improved performance and reduced API calls.
+-   **Accessibility**: Full keyboard navigation support, ARIA labels, screen reader compatibility, and high contrast mode support.
+-   **Error Handling**: Comprehensive error handling with user-friendly messages and graceful fallbacks.
+-   **Loading States**: Professional loading indicators with progress feedback and smooth transitions.
 
 ## Technologies
 
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
+- **Frontend**: HTML5, CSS3, Vanilla JavaScript (ES6+)
 - **Mapping**: [Leaflet](https://leafletjs.com/) - Open-source JavaScript library for interactive maps
-- **Geocoding**: [Nominatim API](https://nominatim.org/) - Free geocoding service by OpenStreetMap
-- **Data**: Local JSON file containing Singapore bus stop information
+- **Geocoding & Data**: [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) - Real-time OpenStreetMap data querying
+- **Performance**: Multi-layer caching system (memory cache + localStorage) with intelligent cache management
+- **APIs**: Modern Fetch API with comprehensive error handling and timeout management
 
 ## Data Source
 
-Bus stop data is sourced from `bus_stop_list_sg.json`, which contains information about bus stops across Singapore including:
-- Bus stop codes
-- Descriptions
+Bus stop data is dynamically fetched in real-time using the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), which queries OpenStreetMap data for Singapore including:
+- Bus stop codes (ref tags)
+- Bus stop names and descriptions
 - Geographic coordinates (latitude and longitude)
+- Real-time data availability
+
+The application queries for `highway=bus_stop` and `public_transport=platform` nodes within the specified radius around the user's location, ensuring always up-to-date information without requiring manual data updates.
 
 ## Technical Implementation
 
-### Bus Stop Data Loading
+### Architecture Overview
 
-The application loads bus stop data through the following process:
+The application uses a modern, real-time architecture with dynamic data fetching and intelligent caching:
 
-1. **Data Fetching**: Fetches `bus_stop_list_sg.json` file using the Fetch API
-2. **Data Cleaning**: Removes JavaScript-style comments (lines starting with `//`) from the JSON file
-3. **Data Parsing**: Parses the cleaned JSON data into a JavaScript array of bus stop objects
-4. **Data Storage**: Stores the parsed data in a global `stops` array for efficient access
+### Real-Time Data Fetching
+
+**Overpass API Integration:**
+- Queries OpenStreetMap data in real-time using the Overpass API
+- Searches for `highway=bus_stop` and `public_transport=platform` nodes within specified radius
+- Constructs intelligent regex patterns for fuzzy location matching
+- Handles API timeouts and errors gracefully with user-friendly feedback
+
+**Advanced Search System:**
+- Implements fuzzy search with token-based pattern matching
+- Supports partial word matching and intelligent result ranking
+- Caches search results in localStorage for improved performance
+- Debounced search requests to prevent API spam
+
+### Multi-Layer Caching System
+
+**Performance Optimizations:**
+- **Memory Cache**: In-memory Map object for bus stop data with 5-minute expiry
+- **localStorage Cache**: Persistent storage for search results and frequently accessed data
+- **Debounced Operations**: 300ms debounce on radius changes, 500ms debounce on search
+- **Request Deduplication**: Prevents duplicate API calls when already loading
+
+**Cache Management:**
+- Automatic cache size limits (50 entries for memory cache)
+- Intelligent cache invalidation based on timestamps
+- Graceful fallback when cache is unavailable
 
 ### Location Processing Logic
 
 **User Location Detection:**
-- Primary method: Browser Geolocation API (`navigator.geolocation.getCurrentPosition()`)
+- Primary method: Browser Geolocation API with high accuracy settings
 - Fallback method: URL parameters (`?lat=1.283&lon=103.860`)
 - Default location: Singapore center coordinates (1.283, 103.860)
+- Comprehensive error handling for different geolocation failure modes
 
-**Bus Stop Filtering:**
-- Uses Leaflet's `map.distance()` method for accurate distance calculations
-- Filters bus stops within the user-specified radius (100m to 2000m)
-- Distance calculation uses the Haversine formula for geographic accuracy
+**Bus Stop Filtering & Rendering:**
+- Real-time filtering using Leaflet's distance calculation methods
+- Dynamic marker creation with staggered animations for smooth UX
+- Distance-based sorting for optimal user experience
+- Automatic results counter with live updates
 
-**Marker Rendering:**
-- Creates Leaflet markers for each qualifying bus stop
-- Binds popups containing bus stop code, description, and arrival time link
-- Links to external bus arrival time service using bus stop codes
+### Advanced Features Implementation
+
+**Accessibility Features:**
+- Full keyboard navigation support with proper focus management
+- ARIA labels and live regions for screen readers
+- High contrast mode support for users with visual impairments
+- Reduced motion support for users with vestibular disorders
+
+**Modern UI Features:**
+- CSS custom properties (CSS variables) for consistent theming
+- Glassmorphism effects with backdrop filters
+- Smooth animations with cubic-bezier easing functions
+- Mobile-first responsive design with safe area support
 
 ### Key Functions
 
-- `loadStops()`: Handles data loading and initial processing
-- `setUser(pos)`: Sets user location and triggers stop rendering
-- `renderStops()`: Filters and displays bus stops within radius
-- `locateMe()`: Gets user location via geolocation API
-- `searchLocation()`: Searches for locations using Nominatim geocoding service
+**Core Functions:**
+- `fetchBusStops(lat, lon, radius, callback)`: Fetches bus stop data from Overpass API
+- `fetchBusStopsWithCache(lat, lon, radius, callback, cacheKey)`: Cached version with performance optimization
+- `setUser(pos)`: Sets user location and triggers comprehensive updates
+- `renderStops()`: Advanced filtering and rendering with animations
+- `buildOverpassSearchQuery(query)`: Constructs intelligent search patterns
+- `performSearch(query)`: Handles location search with caching and error handling
+
+**Utility Functions:**
+- `showLoadingState(message)`: Professional loading indicators with animations
+- `showMessage(message, type)`: Advanced notification system with different types
+- `normalizeOverpassElements(elements)`: Data processing and normalization
+- `extractCoordinates(item)`: Robust coordinate extraction from various data formats
+
+**User Interaction:**
+- `locateMe()`: Enhanced geolocation with comprehensive error handling
+- `searchLocation()`: Debounced search with intelligent result processing
+- `loadStops()`: Initial data loading and application bootstrap
+
+### Performance & Caching
+
+**Intelligent Caching Strategy:**
+- **Memory Cache**: Bus stop data cached in Map object with 5-minute expiry for instant subsequent loads
+- **Search Cache**: Location search results cached in localStorage for 5 minutes to reduce API calls
+- **Cache Management**: Automatic cleanup with size limits (50 entries) and intelligent invalidation
+- **Offline Support**: Graceful degradation when network is unavailable
+
+**Performance Optimizations:**
+- **Debounced Operations**: 300ms debounce on radius slider, 500ms debounce on search input
+- **Request Deduplication**: Prevents multiple simultaneous API calls for the same data
+- **Staggered Animations**: Smooth marker animations with 50ms delays to prevent UI blocking
+- **Efficient DOM Updates**: Minimal DOM manipulation with batch updates where possible
+
+**API Rate Limiting:**
+- Built-in protection against API spam with intelligent request timing
+- Automatic retry logic with exponential backoff for failed requests
+- Comprehensive error handling with user-friendly feedback messages
 
 ## Installation & Usage
 
@@ -99,7 +172,12 @@ Location data is processed locally in your browser and is not stored or transmit
 
 ## Business Use
 
-This application is suitable for personal and non-commercial use. For business or high-traffic applications, please be aware that it relies on the free [Nominatim API](https://nominatim.org/release-docs/latest/api/Search/) for location searching, which has a strict [usage policy](https://operations.osmfoundation.org/policies/nominatim/). High-volume usage may require a commercial plan or a self-hosted instance.
+This application is suitable for personal and non-commercial use. For business or high-traffic applications, please be aware that it relies on the free [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) for real-time bus stop data, which has a [usage policy](https://operations.osmfoundation.org/policies/nominatim/) that should be respected. The application implements intelligent caching and request optimization to minimize API load.
+
+For high-volume commercial deployments, consider:
+- Implementing your own OpenStreetMap data processing pipeline
+- Contributing to OpenStreetMap infrastructure improvements
+- Using commercial map data providers as alternatives
 
 ## License
 
