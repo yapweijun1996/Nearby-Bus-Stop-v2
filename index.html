@@ -453,47 +453,69 @@
 
 		@media (max-width: 480px) {
 			.controls {
-				left: 8px;
-				right: 8px;
-				padding: 12px;
-				gap: 8px;
-				border-radius: var(--radius);
+				left: 0;
+				right: 0;
+				bottom: 0;
+				max-height: 70vh;
+				padding: 16px;
+				gap: 12px;
+				border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+				z-index: 1000;
+				overflow-y: auto;
+				box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+			}
+
+			.controls.hidden {
+				transform: translateY(calc(100% - 60px));
+				opacity: 1;
 			}
 
 			.controls-row {
-				flex-wrap: wrap;
-				gap: 6px;
+				flex-wrap: nowrap;
+				gap: 8px;
+				align-items: stretch;
 			}
 
 			.controls-row>input[type="text"] {
-				flex: 1 1 100%;
-				margin-bottom: 4px;
+				flex: 1;
+				min-height: 48px;
+				padding: 12px 16px;
+				font-size: 16px; /* Prevent zoom on iOS */
+				border-radius: var(--radius);
 			}
 
 			.controls-row>button {
-				flex: 1;
-				min-width: 0;
-				padding: 8px 12px;
-				font-size: 0.75rem;
-				min-height: 36px;
+				flex-shrink: 0;
+				min-height: 48px;
+				padding: 12px 16px;
+				font-size: 0.875rem;
+				min-width: 48px;
+				border-radius: var(--radius);
+			}
+
+			.controls-row label {
+				font-size: 0.875rem;
+				margin-bottom: 8px;
+				display: block;
 			}
 
 			.sheet-handle {
-				width: 32px;
-				height: 3px;
-				margin-bottom: 0;
+				width: 36px;
+				height: 4px;
+				margin: 0 auto 8px auto;
 			}
 
 			#showBtn {
-				width: 48px;
-				height: 48px;
-				font-size: 14px;
-				bottom: calc(12px + env(safe-area-inset-bottom));
-				right: 12px;
+				width: 56px;
+				height: 56px;
+				font-size: 16px;
+				bottom: calc(16px + env(safe-area-inset-bottom));
+				right: 16px;
+				z-index: 1001;
 			}
 
 			#showBtn::before {
-				font-size: 16px !important;
+				font-size: 18px !important;
 			}
 
 			/* Larger zoom controls for mobile */
@@ -502,10 +524,104 @@
 				height: 48px !important;
 				font-size: 20px !important;
 			}
+
+			/* Better popup sizing for mobile */
+			.leaflet-popup-content {
+				font-size: 0.875rem !important;
+				line-height: 1.6 !important;
+			}
+		}
+
+		/* Visual Enhancement Animations */
+		@keyframes pulse {
+			0% {
+				transform: scale(0.95);
+				box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7);
+			}
+			70% {
+				transform: scale(1);
+				box-shadow: 0 0 0 10px rgba(79, 70, 229, 0);
+			}
+			100% {
+				transform: scale(0.95);
+				box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+			}
+		}
+
+		@keyframes fadeInScale {
+			from {
+				opacity: 0;
+				transform: scale(0.8);
+			}
+			to {
+				opacity: 1;
+				transform: scale(1);
+			}
+		}
+
+		@keyframes slideInRight {
+			from {
+				opacity: 0;
+				transform: translateX(100%);
+			}
+			to {
+				opacity: 1;
+				transform: translateX(0);
+			}
+		}
+
+		@keyframes slideOutRight {
+			from {
+				opacity: 1;
+				transform: translateX(0);
+			}
+			to {
+				opacity: 0;
+				transform: translateX(100%);
+			}
+		}
+
+		/* Enhanced map interactions */
+		.leaflet-marker-icon.user-marker {
+			animation: pulse 2s infinite;
+		}
+
+		.leaflet-popup-content {
+			animation: fadeInScale 0.3s ease;
+		}
+
+		/* Smooth radius slider */
+		#radius {
+			transition: all 0.3s ease;
+		}
+
+		#radius:hover {
+			transform: scaleY(1.2);
+		}
+
+		/* Enhanced button interactions */
+		.controls-row button {
+			transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+
+		.controls-row button:active {
+			transform: scale(0.98);
 		}
 
 		/* Ultra-small screens (e.g., 333x155) */
 		@media (max-width: 350px) {
+			#results-counter {
+				top: 8px !important;
+				left: 8px !important;
+				right: auto !important;
+				transform: none !important;
+				font-size: 0.75rem !important;
+				padding: 4px 8px !important;
+				max-width: calc(100vw - 70px) !important;
+				white-space: nowrap !important;
+				overflow: hidden !important;
+				text-overflow: ellipsis !important;
+			}
 			.controls {
 				left: 0;
 				right: 0;
@@ -609,44 +725,46 @@
 		<div class="sheet-handle"></div>
 
 		<div class="controls-row">
-			<label>Radius: <span id="radiusValue">500</span>m</label>
-			<input type="range" id="radius" min="100" max="2000" value="500" step="100" style="width: 65%;" />
+			<label for="radius">Radius: <span id="radiusValue" aria-live="polite">500</span>m</label>
+			<input type="range" id="radius" min="100" max="2000" value="500" step="100" style="width: 65%;"
+				   aria-label="Search radius in meters" aria-describedby="radiusValue" />
 		</div>
 
 		<div class="controls-row">
-			<input type="text" id="searchInput" placeholder="Search for a location..." aria-label="Search location" />
-			<button id="searchBtn" class="btn-primary">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<input type="text" id="searchInput" placeholder="Search for a location..." aria-label="Search for a location"
+				   autocomplete="off" spellcheck="false" />
+			<button id="searchBtn" class="btn-primary" aria-label="Search for location">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path
 						d="M21 21L16.514 16.506M19 10.5C19 15.194 15.194 19 10.5 19S2 15.194 2 10.5 5.806 2 10.5 2 19 5.806 19 10.5Z"
 						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 				</svg>
-				Search
+				<span>Search</span>
 			</button>
 		</div>
 
 		<div class="controls-row">
-			<button id="locateBtn" class="btn-primary">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<button id="locateBtn" class="btn-primary" aria-label="Get current location">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"
 						stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
 				</svg>
-				Locate Me
+				<span>Locate Me</span>
 			</button>
-			<button id="toggleBtn" class="btn-toggle" aria-label="Hide Controls">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<button id="toggleBtn" class="btn-toggle" aria-label="Toggle controls panel visibility" aria-expanded="true">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
 						stroke-linejoin="round" />
 				</svg>
-				Hide
+				<span>Hide</span>
 			</button>
-			<button id="fullscreenBtn" class="btn-success">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<button id="fullscreenBtn" class="btn-success" aria-label="Toggle fullscreen mode" aria-pressed="false">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path
 						d="M8 3H5C3.89543 3 3 3.89543 3 5V8M21 8V5C21 3.89543 20.1046 3 19 3H16M16 21H19C20.1046 21 21 20.1046 21 19V16M3 16V19C3 20.1046 3.89543 21 5 21H8"
 						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 				</svg>
-				Fullscreen
+				<span>Fullscreen</span>
 			</button>
 		</div>
 	</div>
@@ -669,9 +787,37 @@
 			crossOrigin: true
 		}).addTo(map);
 
-		const circle = L.circle([DEFAULT.lat, DEFAULT.lon], { radius: 500 }).addTo(map);
+		// Enhanced visual elements
+		const circle = L.circle([DEFAULT.lat, DEFAULT.lon], {
+			radius: 500,
+			color: '#4f46e5',
+			fillColor: '#4f46e5',
+			fillOpacity: 0.1,
+			weight: 2,
+			dashArray: '10, 10'
+		}).addTo(map);
+
 		const stopLayer = L.layerGroup().addTo(map);
 		let userMarker = null, userPos = null, busStopsData = [], isLoadingBusStops = false;
+
+		// Performance optimization: Debounce radius changes
+		let radiusTimeout, searchTimeout;
+		const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+		const busStopsCache = new Map();
+
+		// Enhanced user marker with pulse animation
+		const userIcon = L.divIcon({
+			html: `
+				<div style="
+					width: 20px; height: 20px; border-radius: 50%; background: #4f46e5;
+					border: 3px solid white; box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7);
+					animation: pulse 2s infinite;
+				"></div>
+			`,
+			className: 'user-marker',
+			iconSize: [20, 20],
+			iconAnchor: [10, 10]
+		});
 
 		function fetchBusStops(lat, lon, radius, callback) {
 			// Prevent duplicate API calls
@@ -683,7 +829,7 @@
 			}
 
 			isLoadingBusStops = true;
-			showLoadingState('正在获取巴士站数据...');
+			showLoadingState('Fetching bus stop data...');
 
 			var query = '[out:json][timeout:25];\n' +
 			'(\n' +
@@ -708,7 +854,7 @@
 				hideLoadingState();
 
 				if (data.elements.length === 0) {
-					showMessage('指定范围内未找到巴士站');
+					showMessage('No bus stops found in the specified area');
 				}
 
 				busStopsData = data.elements;
@@ -720,7 +866,7 @@
 				isLoadingBusStops = false;
 				hideLoadingState();
 				console.error('Error fetching bus stops:', error);
-				showMessage('无法获取巴士站数据，请检查网络连接');
+				showMessage('Unable to fetch bus stop data. Please check your network connection');
 				if (typeof callback === "function") {
 					callback();
 				}
@@ -728,70 +874,181 @@
 		}
 
 		function showLoadingState(message) {
-			// Add visual loading indicator to controls
-			const controls = document.getElementById('controls');
-			const existingLoader = document.getElementById('api-loader');
-			if (existingLoader) {
-				existingLoader.remove();
-			}
+			// Enhanced full-screen loading overlay
+			hideLoadingState(); // Remove any existing loader
 
-			const loader = document.createElement('div');
-			loader.id = 'api-loader';
-			loader.style.cssText = `
-				position: absolute;
-				top: 10px;
-				right: 10px;
-				background: rgba(79, 70, 229, 0.9);
-				color: white;
-				padding: 8px 12px;
-				border-radius: 8px;
-				font-size: 12px;
-				z-index: 1001;
+			const overlay = document.createElement('div');
+			overlay.id = 'loading-overlay';
+			overlay.style.cssText = `
+				position: fixed;
+				top: 0;
+				left: 0;
+				right: 0;
+				bottom: 0;
+				background: rgba(0, 0, 0, 0.6);
+				backdrop-filter: blur(4px);
+				z-index: 9999;
 				display: flex;
 				align-items: center;
-				gap: 6px;
-			`;
-			loader.innerHTML = `
-				<div style="width: 12px; height: 12px; border: 2px solid transparent; border-top: 2px solid white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-				${message}
+				justify-content: center;
+				animation: fadeIn 0.3s ease;
 			`;
 
-			controls.style.position = 'relative';
-			controls.appendChild(loader);
+			overlay.innerHTML = `
+				<div style="
+					background: var(--surface);
+					padding: 32px;
+					border-radius: var(--radius-lg);
+					text-align: center;
+					box-shadow: var(--shadow);
+					border: 1px solid var(--border);
+					max-width: 300px;
+					animation: slideUp 0.3s ease;
+				">
+					<div style="
+						width: 48px;
+						height: 48px;
+						border: 3px solid var(--border);
+						border-top: 3px solid var(--primary);
+						border-radius: 50%;
+						animation: spin 1s linear infinite;
+						margin: 0 auto 16px;
+					"></div>
+					<div style="color: var(--text); font-weight: 500; margin-bottom: 8px;">${message}</div>
+					<div style="color: var(--text-light); font-size: 0.875rem;">Please wait...</div>
+				</div>
+			`;
+
+			document.body.appendChild(overlay);
+
+			// Add CSS animations if not already present
+			if (!document.getElementById('loading-animations')) {
+				const style = document.createElement('style');
+				style.id = 'loading-animations';
+				style.textContent = `
+					@keyframes spin {
+						0% { transform: rotate(0deg); }
+						100% { transform: rotate(360deg); }
+					}
+					@keyframes fadeIn {
+						from { opacity: 0; }
+						to { opacity: 1; }
+					}
+					@keyframes slideUp {
+						from {
+							opacity: 0;
+							transform: translateY(20px);
+						}
+						to {
+							opacity: 1;
+							transform: translateY(0);
+						}
+					}
+				`;
+				document.head.appendChild(style);
+			}
 		}
 
 		function hideLoadingState() {
-			const loader = document.getElementById('api-loader');
+			const loader = document.getElementById('loading-overlay');
 			if (loader) {
-				loader.remove();
+				loader.style.animation = 'fadeOut 0.3s ease forwards';
+				setTimeout(() => loader.remove(), 300);
 			}
 		}
 
-		function showMessage(message) {
-			// Create temporary message popup
+		function showMessage(message, type = 'info') {
+			// Enhanced message system with different types
+			hideMessage(); // Remove any existing message
+
 			const messageDiv = document.createElement('div');
+			messageDiv.id = 'message-popup';
+
+			const colors = {
+				info: { bg: '#4f46e5', icon: 'ℹ️' },
+				success: { bg: '#059669', icon: '✅' },
+				warning: { bg: '#d97706', icon: '⚠️' },
+				error: { bg: '#dc2626', icon: '❌' }
+			};
+
+			const color = colors[type] || colors.info;
+
 			messageDiv.style.cssText = `
 				position: fixed;
 				top: 20px;
 				right: 20px;
-				background: #4f46e5;
+				background: ${color.bg};
 				color: white;
-				padding: 12px 16px;
-				border-radius: 8px;
-				font-size: 14px;
+				padding: 16px 20px;
+				border-radius: var(--radius);
+				font-size: 0.875rem;
 				z-index: 1002;
-				box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-				max-width: 300px;
+				box-shadow: var(--shadow);
+				max-width: 320px;
+				cursor: pointer;
+				animation: slideInRight 0.3s ease;
+				display: flex;
+				align-items: flex-start;
+				gap: 12px;
 			`;
-			messageDiv.textContent = message;
+
+			messageDiv.innerHTML = `
+				<span style="font-size: 1.125rem; flex-shrink: 0;">${color.icon}</span>
+				<span style="flex: 1; line-height: 1.5;">${message}</span>
+				<button onclick="hideMessage()" style="
+					background: none;
+					border: none;
+					color: white;
+					font-size: 1.25rem;
+					cursor: pointer;
+					padding: 0;
+					margin-left: 8px;
+					opacity: 0.8;
+				">&times;</button>
+			`;
 
 			document.body.appendChild(messageDiv);
 
+			// Auto-hide after 5 seconds for info/success, 8 seconds for warnings/errors
+			const autoHideDelay = (type === 'error' || type === 'warning') ? 8000 : 5000;
 			setTimeout(() => {
-				messageDiv.style.opacity = '0';
-				messageDiv.style.transform = 'translateY(-10px)';
-				setTimeout(() => messageDiv.remove(), 300);
-			}, 3000);
+				if (document.getElementById('message-popup')) {
+					hideMessage();
+				}
+			}, autoHideDelay);
+
+			// Click to dismiss
+			messageDiv.onclick = (e) => {
+				if (e.target === messageDiv) {
+					hideMessage();
+				}
+			};
+		}
+
+		function hideMessage() {
+			const message = document.getElementById('message-popup');
+			if (message) {
+				message.style.animation = 'slideOutRight 0.3s ease forwards';
+				setTimeout(() => message.remove(), 300);
+			}
+		}
+
+		// Enhanced error handling for different scenarios
+		function handleLocationError(error) {
+			const messages = {
+				1: 'Location access denied. Please enable location permissions and try again.',
+				2: 'Location information unavailable. Please check your device settings.',
+				3: 'Location request timed out. Please try again.'
+			};
+			showMessage(messages[error.code] || 'Unable to get your location. Please try again.', 'error');
+		}
+
+		function handleSearchError() {
+			showMessage('Search failed. Please check your internet connection and try again.', 'error');
+		}
+
+		function handleNetworkError() {
+			showMessage('Network error. Please check your connection and try again.', 'error');
 		}
 
 		const ctrls = document.getElementById('controls');
@@ -800,13 +1057,22 @@
 		const radValue = document.getElementById('radiusValue');
 		const searchIn = document.getElementById('searchInput');
 
+		// Debounced radius input handler for better performance
 		radInput.oninput = () => {
 			radValue.textContent = radInput.value;
 			circle.setRadius(+radInput.value);
+
+			// Immediate visual feedback
 			renderStops();
-			if (userPos && !isLoadingBusStops) {
-				fetchBusStops(userPos.lat, userPos.lon, +radInput.value, renderStops);
-			}
+
+			// Debounce API calls
+			clearTimeout(radiusTimeout);
+			radiusTimeout = setTimeout(() => {
+				if (userPos && !isLoadingBusStops) {
+					const cacheKey = `${userPos.lat},${userPos.lon},${radInput.value}`;
+					fetchBusStopsWithCache(userPos.lat, userPos.lon, +radInput.value, renderStops, cacheKey);
+				}
+			}, 300); // 300ms debounce
 		};
 
 		document.getElementById('searchBtn').onclick = searchLocation;
@@ -824,38 +1090,148 @@
 		};
 
 		function locateMe() {
+			if (!navigator.geolocation) {
+				handleLocationError({ code: 2 });
+				return;
+			}
+
+			showLoadingState('Getting your location...');
 			navigator.geolocation.getCurrentPosition(
-				pos => setUser({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-				() => alert('Unable to retrieve your location')
+				pos => {
+					hideLoadingState();
+					setUser({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+					showMessage('Location acquired successfully!', 'success');
+				},
+				(error) => {
+					hideLoadingState();
+					handleLocationError(error);
+				},
+				{
+					enableHighAccuracy: true,
+					timeout: 10000,
+					maximumAge: 300000 // 5 minutes
+				}
 			);
 		}
 
 		function searchLocation() {
 			const q = searchIn.value.trim();
-			if (!q) return;
-			fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`, {
+			if (!q) {
+				showMessage('Please enter a search term', 'warning');
+				return;
+			}
+
+			// Debounce search requests
+			clearTimeout(searchTimeout);
+			searchTimeout = setTimeout(() => {
+				performSearch(q);
+			}, 500);
+		}
+
+		function performSearch(query) {
+			showLoadingState('Searching for location...');
+
+			// Check cache first
+			const cacheKey = `search_${query.toLowerCase()}`;
+			const cached = localStorage.getItem(cacheKey);
+			if (cached) {
+				const { data, timestamp } = JSON.parse(cached);
+				if (Date.now() - timestamp < CACHE_DURATION) {
+					hideLoadingState();
+					processSearchResult(data);
+					return;
+				}
+			}
+
+			fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=sg`, {
 				headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
 			})
-				.then(r => r.json())
-				.then(data => {
-					if (!data.length) return alert('Location not found');
-					setUser({ lat: +data[0].lat, lon: +data[0].lon });
+				.then(r => {
+					if (!r.ok) throw new Error('Network error');
+					return r.json();
 				})
-				.catch(() => alert('Search failed'));
+				.then(data => {
+					hideLoadingState();
+					// Cache successful results
+					if (data.length > 0) {
+						localStorage.setItem(cacheKey, JSON.stringify({
+							data: data[0],
+							timestamp: Date.now()
+						}));
+					}
+					processSearchResult(data);
+				})
+				.catch(() => {
+					hideLoadingState();
+					handleSearchError();
+				});
 		}
+
+		function processSearchResult(data) {
+			if (!data.length) {
+				showMessage('Location not found. Please try a more specific search term', 'warning');
+				return;
+			}
+			setUser({ lat: +data.lat, lon: +data.lon });
+			showMessage(`Located: ${data.display_name.split(',')[0]}`, 'success');
+		}
+
+		// Enhanced fetchBusStops with caching
+		function fetchBusStopsWithCache(lat, lon, radius, callback, cacheKey) {
+			// Check cache first
+			const cached = busStopsCache.get(cacheKey);
+			if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+				busStopsData = cached.data;
+				if (typeof callback === "function") {
+					callback();
+				}
+				return;
+			}
+
+			fetchBusStops(lat, lon, radius, function() {
+				// Cache the result
+				busStopsCache.set(cacheKey, {
+					data: busStopsData,
+					timestamp: Date.now()
+				});
+
+				// Limit cache size
+				if (busStopsCache.size > 50) {
+					const firstKey = busStopsCache.keys().next().value;
+					busStopsCache.delete(firstKey);
+				}
+
+				if (typeof callback === "function") {
+					callback();
+				}
+			});
+		}
+
+		// Memory cleanup on page unload
+		window.addEventListener('beforeunload', () => {
+			clearTimeout(radiusTimeout);
+			clearTimeout(searchTimeout);
+		});
 
 		function setUser(pos) {
 			userPos = pos;
 			if (!userMarker) {
-				userMarker = L.marker([pos.lat, pos.lon])
+				userMarker = L.marker([pos.lat, pos.lon], { icon: userIcon })
 					.addTo(map)
-					.bindPopup('You are here')
+					.bindPopup('<div style="text-align: center;"><b>📍 Your Location</b><br>Searching for nearby bus stops...</div>')
 					.openPopup();
 			} else {
 				userMarker.setLatLng([pos.lat, pos.lon]);
+				userMarker.bindPopup('<div style="text-align: center;"><b>📍 Your Location</b><br>Location updated</div>').openPopup();
 			}
+
+			// Smooth circle transition
 			circle.setLatLng([pos.lat, pos.lon]);
-			map.setView([pos.lat, pos.lon], map.getZoom());
+			map.flyTo([pos.lat, pos.lon], Math.max(map.getZoom(), 15), {
+				animate: true,
+				duration: 1.5
+			});
+
 			renderStops();
 
 			// Only fetch bus stops if not already loading
@@ -882,24 +1258,206 @@
 		function renderStops() {
 			if (!userPos) return;
 			stopLayer.clearLayers();
-			busStopsData.forEach(s => {
-				if (map.distance([s.lat, s.lon], [userPos.lat, userPos.lon]) <= +radInput.value) {
-					L.marker([s.lat, s.lon])
-						.bindPopup(
-							`<b>${s.tags?.ref || s.id}</b><br>${s.tags?.name || 'Bus Stop'}<br><a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.tags?.ref || s.id}" target="_blank">Times</a>`
-						)
-						.addTo(stopLayer);
-				}
+
+			const radius = +radInput.value;
+			const nearbyStops = busStopsData.filter(s =>
+				map.distance([s.lat, s.lon], [userPos.lat, userPos.lon]) <= radius
+			);
+
+			// Sort by distance for better UX
+			nearbyStops.sort((a, b) => {
+				const distA = map.distance([a.lat, a.lon], [userPos.lat, userPos.lon]);
+				const distB = map.distance([b.lat, b.lon], [userPos.lat, userPos.lon]);
+				return distA - distB;
 			});
+
+			nearbyStops.forEach((s, index) => {
+				const distance = Math.round(map.distance([s.lat, s.lon], [userPos.lat, userPos.lon]));
+				const busIcon = L.divIcon({
+					html: `
+						<div style="
+							width: 32px; height: 32px; border-radius: 50%;
+							background: linear-gradient(135deg, #059669, #10b981);
+							border: 2px solid white;
+							box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+							display: flex; align-items: center; justify-content: center;
+							color: white; font-weight: bold; font-size: 10px;
+							animation: fadeInScale 0.3s ease;
+						">${s.tags?.ref || s.id}</div>
+					`,
+					className: 'bus-stop-marker',
+					iconSize: [32, 32],
+					iconAnchor: [16, 16]
+				});
+
+				const marker = L.marker([s.lat, s.lon], { icon: busIcon })
+					.bindPopup(`
+						<div style="min-width: 200px;">
+							<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+								<span style="font-size: 1.25rem;">🚌</span>
+								<b style="color: #059669;">${s.tags?.ref || s.id}</b>
+							</div>
+							<div style="color: #4b5563; margin-bottom: 8px;">
+								${s.tags?.name || 'Bus Stop'}
+							</div>
+							<div style="display: flex; align-items: center; gap: 4px; margin-bottom: 12px;">
+								<span style="font-size: 0.875rem; color: #6b7280;">📍</span>
+								<span style="font-size: 0.875rem; color: #6b7280;">${distance}m away</span>
+							</div>
+							<a href="https://yapweijun1996.github.io/SG-Bus-Arrival-Time-By-Bus-Code/?busId=${s.tags?.ref || s.id}"
+							   target="_blank"
+							   style="display: inline-flex; align-items: center; gap: 6px; background: #4f46e5; color: white; text-decoration: none; padding: 8px 12px; border-radius: 6px; font-size: 0.875rem; font-weight: 500;">
+								<span>🕐</span>
+								View Times
+							</a>
+						</div>
+					`, {
+						maxWidth: 250,
+						closeButton: true
+					})
+					.addTo(stopLayer);
+
+				// Staggered animation for markers
+				setTimeout(() => {
+					marker._icon.style.animation = 'fadeInScale 0.5s ease';
+				}, index * 50);
+			});
+
+			// Update results counter
+			const counter = document.getElementById('results-counter') || createResultsCounter();
+			counter.textContent = `${nearbyStops.length} bus stops found within ${Math.round(radius)}m`;
+		}
+
+		function createResultsCounter() {
+			const counter = document.createElement('div');
+			counter.id = 'results-counter';
+			counter.style.cssText = `
+				position: absolute;
+				top: 16px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: var(--surface);
+				color: var(--text);
+				padding: 8px 16px;
+				border-radius: var(--radius);
+				font-size: 0.875rem;
+				font-weight: 500;
+				box-shadow: var(--shadow);
+				border: 1px solid var(--border);
+				z-index: 1000;
+				opacity: 0;
+				transition: opacity 0.3s ease;
+			`;
+			map.getContainer().appendChild(counter);
+
+			// Show counter after a short delay
+			setTimeout(() => {
+				counter.style.opacity = '1';
+			}, 500);
+
+			return counter;
 		}
 
 		loadStops();
+
+		// Enhanced keyboard navigation and accessibility
 		searchIn.addEventListener('keydown', function (e) {
 			if (e.key === 'Enter') {
 				e.preventDefault();
 				searchLocation();
 			}
 		});
+
+		// Add keyboard navigation for all interactive elements
+		document.addEventListener('keydown', function (e) {
+			// Escape key to hide controls
+			if (e.key === 'Escape' && !ctrls.classList.contains('hidden')) {
+				document.getElementById('toggleBtn').click();
+				document.getElementById('toggleBtn').focus();
+			}
+
+			// Tab navigation enhancement
+			if (e.key === 'Tab') {
+				// Ensure proper focus management
+				const focusableElements = ctrls.querySelectorAll(
+					'input, button, [tabindex]:not([tabindex="-1"])'
+				);
+
+				const firstElement = focusableElements[0];
+				const lastElement = focusableElements[focusableElements.length - 1];
+
+				// Trap focus within controls when visible
+				if (!ctrls.classList.contains('hidden')) {
+					if (e.shiftKey && document.activeElement === firstElement) {
+						e.preventDefault();
+						lastElement.focus();
+					} else if (!e.shiftKey && document.activeElement === lastElement) {
+						e.preventDefault();
+						firstElement.focus();
+					}
+				}
+			}
+		});
+
+		// Update ARIA states dynamically
+		document.getElementById('toggleBtn').onclick = () => {
+			const isHidden = ctrls.classList.contains('hidden');
+			ctrls.classList.toggle('hidden');
+			showBtn.style.display = isHidden ? 'none' : 'flex';
+			map.invalidateSize();
+
+			// Update ARIA states
+			document.getElementById('toggleBtn').setAttribute('aria-expanded', !isHidden);
+			document.getElementById('toggleBtn').setAttribute('aria-label',
+				isHidden ? 'Show Controls' : 'Hide Controls'
+			);
+		};
+
+		// Update fullscreen button ARIA state
+		document.getElementById('fullscreenBtn').onclick = () => {
+			const isFullscreen = !!document.fullscreenElement;
+			document.getElementById('fullscreenBtn').setAttribute('aria-pressed', !isFullscreen);
+			document.fullscreenElement
+				? document.exitFullscreen()
+				: document.documentElement.requestFullscreen();
+		};
+
+		// Add focus indicators for keyboard users
+		const style = document.createElement('style');
+		style.textContent = `
+			.controls:focus-within {
+				outline: 2px solid var(--primary);
+				outline-offset: 2px;
+			}
+
+			.controls-row input:focus,
+			.controls-row button:focus {
+				outline: 2px solid var(--primary);
+				outline-offset: 2px;
+			}
+
+			/* High contrast mode support */
+			@media (prefers-contrast: high) {
+				:root {
+					--primary: #0000ff;
+					--success: #008000;
+					--neutral: #666666;
+					--text: #000000;
+					--surface: #ffffff;
+					--border: #000000;
+				}
+			}
+
+			/* Reduced motion support */
+			@media (prefers-reduced-motion: reduce) {
+				* {
+					animation-duration: 0.01ms !important;
+					animation-iteration-count: 1 !important;
+					transition-duration: 0.01ms !important;
+				}
+			}
+		`;
+		document.head.appendChild(style);
 	</script>
 </body>
 
