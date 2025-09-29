@@ -45,6 +45,53 @@ The application queries for `highway=bus_stop` and `public_transport=platform` n
 
 ## Technical Implementation
 
+### Application Flow Diagram
+
+```mermaid
+graph TB
+    A[User loads application] --> B[Initialize Leaflet map]
+    B --> C[Set default location<br/>Singapore center]
+    C --> D{User interaction?}
+
+    D -->|Geolocation| E[Request location permission]
+    E --> F[Get current position]
+    F --> G[Set user location]
+
+    D -->|URL Parameters| H[Parse lat/lon from URL]
+    H --> G
+
+    D -->|Search| I[User enters search query]
+    I --> J[Debounce input - 500ms]
+    J --> K[Build Overpass query]
+    K --> L[Check search cache]
+    L -->|Cache hit| M[Use cached location data]
+    L -->|Cache miss| N[Fetch from Overpass API]
+    N --> O[Parse & normalize results]
+    O --> P[Cache results in localStorage]
+    P --> Q[Set map location]
+
+    G --> R[Update radius circle]
+    Q --> R
+    R --> S[Fetch nearby bus stops]
+
+    S --> T[Check memory cache]
+    T -->|Cache hit| U[Use cached bus stop data]
+    T -->|Cache miss| V[Query Overpass API<br/>for bus stops]
+    V --> W[Parse bus stop elements]
+    W --> X[Cache in memory]
+    X --> Y[Filter by radius]
+    Y --> Z[Sort by distance]
+    Z --> AA[Render markers with animations]
+    AA --> BB[Update results counter]
+
+    BB --> CC[User interacts with map]
+    CC -->|Radius slider| DD[Debounce - 300ms]
+    DD --> R
+    CC -->|Click bus stop| EE[Show detailed popup<br/>with arrival times link]
+    CC -->|Toggle controls| FF[Show/hide control panel]
+    CC -->|Fullscreen| GG[Toggle fullscreen mode]
+```
+
 ### Architecture Overview
 
 The application uses a modern, real-time architecture with dynamic data fetching and intelligent caching:
