@@ -803,9 +803,119 @@
 		// Performance optimization: Debounce radius changes
 		let radiusTimeout, searchTimeout;
 		const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+		const SEARCH_RESULT_LIMIT = 20;
+		const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+		const SEARCH_BOUNDING_BOX = {
+			south: 1.15,
+			north: 1.48,
+			west: 103.55,
+			east: 104.1
+		};
 		const busStopsCache = new Map();
 
-		// Enhanced user marker with pulse animation
+		function escapeQueryForRegex(query) {
+			return query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\$&');
+		}
+
+		function buildOverpassSearchQuery(query) {
+			const trimmed = query.trim().slice(0, 80);
+			const tokens = trimmed.split(/\s+/).filter(Boolean);
+
+			let pattern = '.*';
+			if (tokens.length) {
+				const regexTokens = tokens.map(token => {
+					const escaped = escapeQueryForRegex(token);
+					if (token.length > 3) {
+						return `${escaped}\\w*`;
+					}
+					return escaped;
+				});
+				pattern = `.*${regexTokens.join('.*')}.*`;
+			}
+
+			const safePattern = pattern.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+			const { south, west, north, east } = SEARCH_BOUNDING_BOX;
+			const body = `
+				[out:json][timeout:25];
+				(
+				  node["name"~"${safePattern}", i](${south}, ${west}, ${north}, ${east});
+				  way["name"~"${safePattern}", i](${south}, ${west}, ${north}, ${east});
+				  relation["name"~"${safePattern}", i](${south}, ${west}, ${north}, ${east});
+				);
+				out center ${SEARCH_RESULT_LIMIT};
+			`;
+
+			return {
+				body: body.trim(),
+				pattern,
+				tokens
+			};
+		}
+
+		function extractCoordinates(item) {
+			if (!item) return null;
+			if (typeof item.lat === 'number' && typeof item.lon === 'number') {
+				return { lat: item.lat, lon: item.lon };
+			}
+			if (item.center && typeof item.center.lat === 'number' && typeof item.center.lon === 'number') {
+				return { lat: item.center.lat, lon: item.center.lon };
+			}
+			if (Array.isArray(item.geometry) && item.geometry.length) {
+				const first = item.geometry[0];
+				if (typeof first.lat === 'number' && typeof first.lon === 'number') {
+					return { lat: first.lat, lon: first.lon };
+				}
+			}
+
+			return null;
+		}
+
+		function normalizeOverpassElements(elements) {
+			if (!Array.isArray(elements) || elements.length === 0) {
+				return null;
+			}
+
+			const candidates = elements.map(item => {
+				const coords = extractCoordinates(item);
+				if (!coords) {
+					return null;
+				}
+
+				const tags = item.tags || {};
+				const locationName = tags.name || tags['name:en'] || tags['addr:full'] || tags['addr:housename'] || tags['addr:street'];
+				let score = 0;
+				if (tags['addr:housenumber']) score += 3;
+				if (tags['addr:street']) score += 2;
+				if (tags.amenity) score += 1;
+				if (item.type === 'node') score += 1;
+
+				return {
+					lat: coords.lat,
+					lon: coords.lon,
+					name: locationName || 'Location',
+					osmType: item.type,
+					osmId: item.id,
+					score
+				};
+			}).filter(Boolean);
+
+			if (!candidates.length) {
+				return null;
+			}
+
+			candidates.sort((a, b) => b.score - a.score);
+			const best = candidates[0];
+			return {
+				location: {
+					lat: best.lat,
+					lon: best.lon,
+					name: best.name,
+					osmType: best.osmType,
+					osmId: best.osmId
+				},
+				matches: candidates.length
+			};
+		}
 		const userIcon = L.divIcon({
 			html: `
 				<div style="
@@ -1117,63 +1227,169 @@
 		function searchLocation() {
 			const q = searchIn.value.trim();
 			if (!q) {
+				console.warn('[Search] Empty query submitted');
 				showMessage('Please enter a search term', 'warning');
 				return;
 			}
 
+			console.debug('[Search] Received user query', { query: q });
+
 			// Debounce search requests
 			clearTimeout(searchTimeout);
 			searchTimeout = setTimeout(() => {
+				console.debug('[Search] Debounced search triggered', { query: q });
 				performSearch(q);
 			}, 500);
 		}
 
 		function performSearch(query) {
-			showLoadingState('Searching for location...');
-
-			// Check cache first
-			const cacheKey = `search_${query.toLowerCase()}`;
-			const cached = localStorage.getItem(cacheKey);
-			if (cached) {
-				const { data, timestamp } = JSON.parse(cached);
-				if (Date.now() - timestamp < CACHE_DURATION) {
-					hideLoadingState();
-					processSearchResult(data);
-					return;
-				}
+			const trimmed = query.trim();
+			if (!trimmed) {
+				console.warn('[Search] performSearch invoked with empty query after trimming');
+				return;
 			}
 
-			fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=sg`, {
-				headers: { 'User-Agent': 'SG-Bus-Stops-App/1.0 (you@example.com)' }
-			})
-				.then(r => {
-					if (!r.ok) throw new Error('Network error');
-					return r.json();
+			console.debug('[Search] Executing search', { query: trimmed });
+			showLoadingState('Searching for location...');
+
+			const cacheKey = `search_${trimmed.toLowerCase()}`;
+			let cachedEntry = null;
+			try {
+				const cached = localStorage.getItem(cacheKey);
+				if (cached) {
+					cachedEntry = JSON.parse(cached);
+				}
+			} catch (error) {
+				console.warn('[Search] Failed to read cache', { query: trimmed, error });
+			}
+
+			if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_DURATION) {
+				hideLoadingState();
+				console.debug('[Search] Cache hit', {
+					query: trimmed,
+					pattern: cachedEntry.pattern,
+					ageMs: Date.now() - cachedEntry.timestamp
+				});
+				processSearchResult(cachedEntry.data, {
+					source: 'cache',
+					query: trimmed,
+					pattern: cachedEntry.pattern
+				});
+				return;
+			}
+
+			if (cachedEntry) {
+				console.debug('[Search] Cache expired', {
+					query: trimmed,
+					pattern: cachedEntry.pattern,
+					ageMs: Date.now() - cachedEntry.timestamp
+				});
+			}
+
+			const overpassQuery = buildOverpassSearchQuery(trimmed);
+			console.debug('[Search] Prepared Overpass query', {
+				query: trimmed,
+				regexPattern: overpassQuery.pattern,
+				tokens: overpassQuery.tokens,
+				boundingBox: SEARCH_BOUNDING_BOX
+			});
+			const url = `${OVERPASS_ENDPOINT}?data=${encodeURIComponent(overpassQuery.body)}`;
+			console.debug('[Search] Overpass request URL', { url });
+
+			fetch(url)
+				.then(response => {
+					if (!response.ok) {
+						throw new Error(`Overpass request failed with status ${response.status}`);
+					}
+					return response.json();
 				})
 				.then(data => {
 					hideLoadingState();
-					// Cache successful results
-					if (data.length > 0) {
-						localStorage.setItem(cacheKey, JSON.stringify({
-							data: data[0],
-							timestamp: Date.now()
-						}));
+					if (data.remark) {
+						console.warn('[Search] Overpass remark', { query: trimmed, remark: data.remark });
+						showMessage('Search service is busy. Please try again in a moment.', 'warning');
+						return;
 					}
-					processSearchResult(data);
+
+					const elements = Array.isArray(data.elements) ? data.elements : [];
+					console.debug('[Search] Overpass response received', {
+						query: trimmed,
+						matches: elements.length,
+						regexPattern: overpassQuery.pattern
+					});
+					const normalized = normalizeOverpassElements(elements);
+					if (!normalized) {
+						console.warn('[Search] No matches from Overpass', {
+							query: trimmed,
+							regexPattern: overpassQuery.pattern,
+							tokens: overpassQuery.tokens
+						});
+						showMessage('Location not found. Please try a more specific search term', 'warning');
+						return;
+					}
+
+					const { location, matches } = normalized;
+					try {
+					localStorage.setItem(cacheKey, JSON.stringify({
+						data: location,
+						timestamp: Date.now(),
+						pattern: overpassQuery.pattern
+					}));
+						console.debug('[Search] Cached Overpass result', {
+							query: trimmed,
+							regexPattern: overpassQuery.pattern
+						});
+					} catch (error) {
+						console.warn('[Search] Failed to cache result', {
+							query: trimmed,
+							regexPattern: overpassQuery.pattern,
+							error
+						});
+					}
+
+					processSearchResult(location, {
+						source: 'overpass',
+						query: trimmed,
+						matches,
+						pattern: overpassQuery.pattern
+					});
 				})
-				.catch(() => {
+				.catch(error => {
 					hideLoadingState();
+					console.error('[Search] Overpass request error', {
+						query: trimmed,
+						regexPattern: overpassQuery.pattern,
+						error
+					});
 					handleSearchError();
 				});
 		}
 
-		function processSearchResult(data) {
-			if (!data.length) {
+		function processSearchResult(result, meta = {}) {
+			if (!result) {
+				console.warn('[Search] Empty result received', meta);
 				showMessage('Location not found. Please try a more specific search term', 'warning');
 				return;
 			}
-			setUser({ lat: +data.lat, lon: +data.lon });
-			showMessage(`Located: ${data.display_name.split(',')[0]}`, 'success');
+
+			const lat = Number(result.lat);
+			const lon = Number(result.lon);
+			if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+				console.warn('[Search] Invalid coordinates in result', { result, meta });
+				showMessage('Location not found. Please try a more specific search term', 'warning');
+				return;
+			}
+
+			const displayName = result.name || 'Location';
+			console.debug('[Search] Applying search result', {
+				query: meta.query,
+				source: meta.source,
+				matches: meta.matches,
+				lat,
+				lon
+			});
+			setUser({ lat, lon });
+			showMessage(`Located: ${displayName}`, 'success');
 		}
 
 		// Enhanced fetchBusStops with caching
