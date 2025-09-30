@@ -756,7 +756,7 @@
 					<path d="M4 4V9H4.58152M20 20V15H19.4185M15.9385 9.5L19.4185 6M19.4185 6L16 6M19.4185 6L20 6M8.06152 14.5L4.58152 18M4.58152 18L8 18M4.58152 18L4 18"
 						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
 				</svg>
-				<span>重试</span>
+				<span>Retry</span>
 			</button>
 			<button id="toggleBtn" class="btn-toggle" aria-label="Toggle controls panel visibility" aria-expanded="true">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1236,15 +1236,15 @@
 		}
 
 		function showOfflineMessage() {
-			showMessage('检测到网络离线，将使用缓存数据', 'warning');
+			showMessage('Network offline detected, will use cached data', 'warning');
 		}
 
-		// 监听网络状态变化
+		// Listen for network status changes
 		window.addEventListener('online', function() {
 			console.debug('[Network] Connection restored');
-			showMessage('网络连接已恢复', 'success');
+			showMessage('Network connection restored', 'success');
 
-			// 网络恢复时显示重试按钮
+			// Show retry button when network is restored
 			const retryBtn = document.getElementById('retryBtn');
 			if (retryBtn) {
 				retryBtn.style.display = 'flex';
@@ -1386,7 +1386,7 @@
 			}
 
 			console.debug('[Search] Executing search', { query: trimmed });
-			showLoadingState('正在搜索地点...');
+			showLoadingState('Searching for location...');
 
 			const cacheKey = `search_${trimmed.toLowerCase()}`;
 			let cachedEntry = null;
@@ -1454,7 +1454,7 @@
 					// 处理Overpass API的busy状态
 					if (data.remark && data.remark.includes('busy')) {
 						console.warn('[Search] Overpass busy', { query: query, remark: data.remark });
-						showMessage('搜索服务忙碌，请稍后重试', 'warning');
+						showMessage('Search service is busy. Please try again in a moment.', 'warning');
 
 						// 如果有缓存，回退到缓存结果
 						if (cachedEntry) {
@@ -1477,7 +1477,7 @@
 					});
 
 					if (elements.length === 0) {
-						showMessage('未找到地点，请尝试更具体的搜索词', 'warning');
+						showMessage('Location not found. Please try a more specific search term', 'warning');
 						return;
 					}
 
@@ -1488,7 +1488,7 @@
 							regexPattern: overpassQuery.pattern,
 							tokens: overpassQuery.tokens
 						});
-						showMessage('未找到有效地点，请尝试更具体的搜索词', 'warning');
+						showMessage('No valid location found. Please try a more specific search term', 'warning');
 						return;
 					}
 
@@ -1535,7 +1535,7 @@
 							pattern: cachedEntry.pattern,
 							ageMs: Date.now() - cachedEntry.timestamp
 						});
-						showMessage('搜索服务暂时不可用，使用缓存结果', 'warning');
+						showMessage('Search service temporarily unavailable, using cached results', 'warning');
 						processSearchResult(cachedEntry.data, {
 							source: 'expired_cache',
 							query: query,
