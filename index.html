@@ -751,6 +751,13 @@
 				</svg>
 				<span>Locate Me</span>
 			</button>
+			<button id="retryBtn" class="btn-primary" aria-label="Retry API requests" style="display: none;">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+					<path d="M4 4V9H4.58152M20 20V15H19.4185M15.9385 9.5L19.4185 6M19.4185 6L16 6M19.4185 6L20 6M8.06152 14.5L4.58152 18M4.58152 18L8 18M4.58152 18L4 18"
+						stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+				<span>重试</span>
+			</button>
 			<button id="toggleBtn" class="btn-toggle" aria-label="Toggle controls panel visibility" aria-expanded="true">
 				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -812,6 +819,13 @@
 			east: 104.1
 		};
 		const busStopsCache = new Map();
+
+		// Enhanced retry and fallback system
+		let retryCount = 0;
+		const MAX_RETRIES = 3;
+		const RETRY_DELAYS = [1000, 2000, 4000]; // Progressive delays
+		let lastApiCall = 0;
+		const API_RATE_LIMIT = 1000; // Minimum 1 second between API calls
 
 		function escapeQueryForRegex(query) {
 			return query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\$&');
@@ -938,10 +952,23 @@
 				return;
 			}
 
-			isLoadingBusStops = true;
-			showLoadingState('Fetching bus stop data...');
+			// Rate limiting check
+			const now = Date.now();
+			if (now - lastApiCall < API_RATE_LIMIT) {
+				setTimeout(() => fetchBusStops(lat, lon, radius, callback), API_RATE_LIMIT - (now - lastApiCall));
+				return;
+			}
+			lastApiCall = now;
 
-			var query = '[out:json][timeout:25];\n' +
+			isLoadingBusStops = true;
+			retryCount = 0;
+			showLoadingState('Fetching bus stop data... (Attempt 1/' + MAX_RETRIES + ')');
+
+			executeFetchWithRetry(lat, lon, radius, callback);
+		}
+
+		function executeFetchWithRetry(lat, lon, radius, callback) {
+			const query = '[out:json][timeout:25];\n' +
 			'(\n' +
 			'  node["highway"="bus_stop"](around:' + radius + ', ' + lat + ', ' + lon + ');\n' +
 			'  node["public_transport"="platform"](around:' + radius + ', ' + lat + ', ' + lon + ');\n' +
@@ -950,21 +977,24 @@
 			'>;\n' +
 			'out skel qt;';
 
-			var url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+			const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
 
 			fetch(url)
 			.then(function(response) {
 				if (!response.ok) {
-					throw new Error('Network response was not ok');
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 				}
 				return response.json();
 			})
 			.then(function(data) {
 				isLoadingBusStops = false;
+				retryCount = 0;
 				hideLoadingState();
 
 				if (data.elements.length === 0) {
-					showMessage('No bus stops found in the specified area');
+					showMessage('No bus stops found in the specified area', 'warning');
+				} else {
+					showMessage(`Found ${data.elements.length} bus stops`, 'success');
 				}
 
 				busStopsData = data.elements;
@@ -973,14 +1003,53 @@
 				}
 			})
 			.catch(function(error) {
-				isLoadingBusStops = false;
-				hideLoadingState();
-				console.error('Error fetching bus stops:', error);
-				showMessage('Unable to fetch bus stop data. Please check your network connection');
+				console.error('API 请求失败:', error);
+				retryCount++;
+
+				if (retryCount < MAX_RETRIES) {
+					const delay = RETRY_DELAYS[retryCount - 1];
+					showLoadingState(`Retrying... (${retryCount}/${MAX_RETRIES})`);
+
+					setTimeout(() => {
+						executeFetchWithRetry(lat, lon, radius, callback);
+					}, delay);
+				} else {
+					isLoadingBusStops = false;
+					hideLoadingState();
+					handleApiFailure(error, lat, lon, radius, callback);
+				}
+			});
+		}
+
+		function handleApiFailure(error, lat, lon, radius, callback) {
+			console.warn('所有重试尝试均失败，使用备用方案:', error);
+
+			// 显示重试按钮
+			const retryBtn = document.getElementById('retryBtn');
+			if (retryBtn) {
+				retryBtn.style.display = 'flex';
+			}
+
+			// 尝试使用缓存数据作为fallback
+			const cacheKey = `${lat},${lon},${radius}`;
+			const cached = busStopsCache.get(cacheKey);
+
+			if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION * 2) {
+				console.debug('使用缓存数据作为fallback');
+				showMessage('Using cached data to display bus stops (API temporarily unavailable)', 'warning');
+				busStopsData = cached.data;
 				if (typeof callback === "function") {
 					callback();
 				}
-			});
+				return;
+			}
+
+			// 如果没有缓存，显示友好错误信息
+			showMessage('Bus stop data is temporarily unavailable. Please try again later or check your network connection.', 'error');
+
+			if (typeof callback === "function") {
+				callback();
+			}
 		}
 
 		function showLoadingState(message) {
@@ -1161,6 +1230,72 @@
 			showMessage('Network error. Please check your connection and try again.', 'error');
 		}
 
+		// 离线检测和恢复机制
+		function isOnline() {
+			return navigator.onLine;
+		}
+
+		function showOfflineMessage() {
+			showMessage('检测到网络离线，将使用缓存数据', 'warning');
+		}
+
+		// 监听网络状态变化
+		window.addEventListener('online', function() {
+			console.debug('[Network] Connection restored');
+			showMessage('网络连接已恢复', 'success');
+
+			// 网络恢复时显示重试按钮
+			const retryBtn = document.getElementById('retryBtn');
+			if (retryBtn) {
+				retryBtn.style.display = 'flex';
+			}
+		});
+
+		window.addEventListener('offline', function() {
+			console.debug('[Network] Connection lost');
+			showOfflineMessage();
+		});
+
+		// 存储最后的操作状态用于重试
+		let lastOperation = {
+			type: null, // 'location' or 'busStops'
+			params: null
+		};
+
+		function retryLastOperation() {
+			const retryBtn = document.getElementById('retryBtn');
+			if (!retryBtn) return;
+
+			if (lastOperation.type === 'location' && lastOperation.params) {
+				console.debug('[Retry] Retrying location operation');
+				locateMe();
+			} else if (lastOperation.type === 'busStops' && lastOperation.params) {
+				console.debug('[Retry] Retrying bus stops fetch');
+				const { lat, lon, radius } = lastOperation.params;
+				fetchBusStops(lat, lon, radius, renderStops);
+			}
+
+			retryBtn.style.display = 'none';
+		}
+
+		// 修改locateMe函数以支持重试状态跟踪
+		const originalLocateMe = locateMe;
+		function locateMe() {
+			lastOperation = { type: 'location', params: null };
+			document.getElementById('retryBtn').style.display = 'none';
+			originalLocateMe();
+		}
+
+		// 修改setUser函数以支持重试状态跟踪
+		const originalSetUser = setUser;
+		function setUser(pos) {
+			lastOperation = {
+				type: 'busStops',
+				params: { lat: pos.lat, lon: pos.lon, radius: parseInt(document.getElementById('radius').value) }
+			};
+			originalSetUser(pos);
+		}
+
 		const ctrls = document.getElementById('controls');
 		const showBtn = document.getElementById('showBtn');
 		const radInput = document.getElementById('radius');
@@ -1187,6 +1322,7 @@
 
 		document.getElementById('searchBtn').onclick = searchLocation;
 		document.getElementById('locateBtn').onclick = locateMe;
+		document.getElementById('retryBtn').onclick = retryLastOperation;
 		document.getElementById('toggleBtn').onclick = () => {
 			ctrls.classList.toggle('hidden');
 			showBtn.style.display = ctrls.classList.contains('hidden') ? 'flex' : 'none';
@@ -1250,10 +1386,12 @@
 			}
 
 			console.debug('[Search] Executing search', { query: trimmed });
-			showLoadingState('Searching for location...');
+			showLoadingState('正在搜索地点...');
 
 			const cacheKey = `search_${trimmed.toLowerCase()}`;
 			let cachedEntry = null;
+
+			// 尝试读取缓存
 			try {
 				const cached = localStorage.getItem(cacheKey);
 				if (cached) {
@@ -1263,6 +1401,7 @@
 				console.warn('[Search] Failed to read cache', { query: trimmed, error });
 			}
 
+			// 检查缓存是否有效
 			if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_DURATION) {
 				hideLoadingState();
 				console.debug('[Search] Cache hit', {
@@ -1286,62 +1425,89 @@
 				});
 			}
 
-			const overpassQuery = buildOverpassSearchQuery(trimmed);
+			// 执行搜索请求（带重试机制）
+			executeSearchWithRetry(trimmed, cacheKey, cachedEntry);
+		}
+
+		function executeSearchWithRetry(query, cacheKey, cachedEntry) {
+			const overpassQuery = buildOverpassSearchQuery(query);
 			console.debug('[Search] Prepared Overpass query', {
-				query: trimmed,
+				query: query,
 				regexPattern: overpassQuery.pattern,
 				tokens: overpassQuery.tokens,
 				boundingBox: SEARCH_BOUNDING_BOX
 			});
+
 			const url = `${OVERPASS_ENDPOINT}?data=${encodeURIComponent(overpassQuery.body)}`;
 			console.debug('[Search] Overpass request URL', { url });
 
 			fetch(url)
 				.then(response => {
 					if (!response.ok) {
-						throw new Error(`Overpass request failed with status ${response.status}`);
+						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 					}
 					return response.json();
 				})
 				.then(data => {
 					hideLoadingState();
-					if (data.remark) {
-						console.warn('[Search] Overpass remark', { query: trimmed, remark: data.remark });
-						showMessage('Search service is busy. Please try again in a moment.', 'warning');
+
+					// 处理Overpass API的busy状态
+					if (data.remark && data.remark.includes('busy')) {
+						console.warn('[Search] Overpass busy', { query: query, remark: data.remark });
+						showMessage('搜索服务忙碌，请稍后重试', 'warning');
+
+						// 如果有缓存，回退到缓存结果
+						if (cachedEntry) {
+							setTimeout(() => {
+								processSearchResult(cachedEntry.data, {
+									source: 'expired_cache',
+									query: query,
+									pattern: cachedEntry.pattern
+								});
+							}, 2000);
+						}
 						return;
 					}
 
 					const elements = Array.isArray(data.elements) ? data.elements : [];
 					console.debug('[Search] Overpass response received', {
-						query: trimmed,
+						query: query,
 						matches: elements.length,
 						regexPattern: overpassQuery.pattern
 					});
+
+					if (elements.length === 0) {
+						showMessage('未找到地点，请尝试更具体的搜索词', 'warning');
+						return;
+					}
+
 					const normalized = normalizeOverpassElements(elements);
 					if (!normalized) {
-						console.warn('[Search] No matches from Overpass', {
-							query: trimmed,
+						console.warn('[Search] No valid matches from Overpass', {
+							query: query,
 							regexPattern: overpassQuery.pattern,
 							tokens: overpassQuery.tokens
 						});
-						showMessage('Location not found. Please try a more specific search term', 'warning');
+						showMessage('未找到有效地点，请尝试更具体的搜索词', 'warning');
 						return;
 					}
 
 					const { location, matches } = normalized;
+
+					// 缓存搜索结果
 					try {
-					localStorage.setItem(cacheKey, JSON.stringify({
-						data: location,
-						timestamp: Date.now(),
-						pattern: overpassQuery.pattern
-					}));
-						console.debug('[Search] Cached Overpass result', {
-							query: trimmed,
+						localStorage.setItem(cacheKey, JSON.stringify({
+							data: location,
+							timestamp: Date.now(),
+							pattern: overpassQuery.pattern
+						}));
+						console.debug('[Search] Cached result', {
+							query: query,
 							regexPattern: overpassQuery.pattern
 						});
 					} catch (error) {
 						console.warn('[Search] Failed to cache result', {
-							query: trimmed,
+							query: query,
 							regexPattern: overpassQuery.pattern,
 							error
 						});
@@ -1349,18 +1515,37 @@
 
 					processSearchResult(location, {
 						source: 'overpass',
-						query: trimmed,
+						query: query,
 						matches,
 						pattern: overpassQuery.pattern
 					});
 				})
 				.catch(error => {
-					hideLoadingState();
-					console.error('[Search] Overpass request error', {
-						query: trimmed,
+					console.error('[Search] Request failed', {
+						query: query,
 						regexPattern: overpassQuery.pattern,
 						error
 					});
+
+					// 如果有缓存，回退到缓存结果
+					if (cachedEntry) {
+						hideLoadingState();
+						console.debug('[Search] Fallback to expired cache', {
+							query: query,
+							pattern: cachedEntry.pattern,
+							ageMs: Date.now() - cachedEntry.timestamp
+						});
+						showMessage('搜索服务暂时不可用，使用缓存结果', 'warning');
+						processSearchResult(cachedEntry.data, {
+							source: 'expired_cache',
+							query: query,
+							pattern: cachedEntry.pattern
+						});
+						return;
+					}
+
+					// 没有缓存时的错误处理
+					hideLoadingState();
 					handleSearchError();
 				});
 		}
